@@ -1,34 +1,57 @@
 "use client";
+
 import { useEffect, useState } from "react";
 
-type TreeNode = {
+type Node = {
   name: string;
   type: "file" | "directory";
-  children?: TreeNode[];
 };
 
-function FolderTree({ nodes }: { nodes: TreeNode[] }) {
-  if (!nodes || nodes.length === 0) return null;
+function FolderTree({ path, name }: { path: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  const [children, setChildren] = useState<Node[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = () => {
+    if (!open && children === null) {
+      setLoading(true);
+      fetch(`/api/mp3?path=${encodeURIComponent(path)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.children) setChildren(data.children);
+          else setError(data.error || "Errore sconosciuto");
+        })
+        .catch((err) => setError(String(err)))
+        .finally(() => setLoading(false));
+    }
+    setOpen((v) => !v);
+  };
+
   return (
-    <ul style={{ listStyle: "none", paddingLeft: 16 }}>
-      {nodes.map((node) => (
-        <li key={node.name}>
-          {node.type === "directory" ? (
-            <>
-              <span role="img" aria-label="folder">📁</span> <b>{node.name}</b>
-              {node.children && <FolderTree nodes={node.children} />}
-            </>
-          ) : (
-            <span><span role="img" aria-label="file">🎵</span> {node.name}</span>
+    <li>
+      <span style={{ cursor: "pointer" }} onClick={handleToggle}>
+        {open ? "📂" : "📁"} <b>{name}</b>
+      </span>
+      {loading && <span> (caricamento...)</span>}
+      {error && <div style={{ color: "red" }}>Errore: {error}</div>}
+      {open && children && (
+        <ul style={{ listStyle: "none", paddingLeft: 16 }}>
+          {children.map((child) =>
+            child.type === "directory" ? (
+              <FolderTree key={child.name} path={path ? path + "/" + child.name : child.name} name={child.name} />
+            ) : (
+              <li key={child.name}><span role="img" aria-label="file">🎵</span> {child.name}</li>
+            )
           )}
-        </li>
-      ))}
-    </ul>
+        </ul>
+      )}
+    </li>
   );
 }
 
 export default function Mp3Browser() {
-  const [tree, setTree] = useState<TreeNode[]>([]);
+  const [root, setRoot] = useState<Node[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +59,7 @@ export default function Mp3Browser() {
     fetch("/api/mp3")
       .then((res) => res.json())
       .then((data) => {
-        if (data.tree) setTree(data.tree);
+        if (data.children) setRoot(data.children);
         else setError(data.error || "Errore sconosciuto");
       })
       .catch((err) => setError(String(err)))
@@ -49,10 +72,18 @@ export default function Mp3Browser() {
   return (
     <div>
       <h2>File e cartelle disponibili</h2>
-      {tree.length === 0 ? (
-        <div>Nessun file trovato.</div>
+      {root && root.length > 0 ? (
+        <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+          {root.map((node) =>
+            node.type === "directory" ? (
+              <FolderTree key={node.name} path={node.name} name={node.name} />
+            ) : (
+              <li key={node.name}><span role="img" aria-label="file">🎵</span> {node.name}</li>
+            )
+          )}
+        </ul>
       ) : (
-        <FolderTree nodes={tree} />
+        <div>Nessun file trovato.</div>
       )}
     </div>
   );
