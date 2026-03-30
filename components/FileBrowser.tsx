@@ -50,7 +50,7 @@ function FolderTree({ path, name }: { path: string; name: string }) {
   );
 }
 
-export default function Mp3Browser() {
+export default function FileBrowser() {
   const [root, setRoot] = useState<Node[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
