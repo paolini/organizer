@@ -7,6 +7,60 @@ type Node = {
   type: "file" | "directory";
 };
 
+function FileInfo({ path, name, onClose }: { path: string; name: string; onClose: () => void }) {
+  const [info, setInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/mp3/fileinfo?path=${encodeURIComponent(path)}`)
+      .then((res) => res.json())
+      .then((data) => setInfo(data))
+      .catch((err) => setError(String(err)))
+      .finally(() => setLoading(false));
+  }, [path]);
+
+  if (loading) return <div>Caricamento info...</div>;
+  if (error) return <div style={{ color: 'red' }}>Errore: {error}</div>;
+  if (!info) return null;
+
+  return (
+    <div style={{ border: '1px solid #ccc', padding: 16, margin: 8, background: '#fafafa' }}>
+      <button onClick={onClose} style={{ float: 'right' }}>Chiudi</button>
+      <h3>Info file: {name}</h3>
+      <ul>
+        <li>Dimensione: {info.size} bytes</li>
+        <li>Formato: {info.ext}</li>
+      </ul>
+      {info.tags && (
+        <>
+          <h4>Tag audio</h4>
+          <pre style={{ background: '#eee', padding: 8 }}>{JSON.stringify(info.tags, null, 2)}</pre>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FileListItem({ path, name }: { path: string; name: string }) {
+  const [showInfo, setShowInfo] = useState(false);
+  return (
+    <li>
+      <span
+        role="img"
+        aria-label="file"
+        style={{ cursor: "pointer" }}
+        onClick={() => setShowInfo(true)}
+      >
+        📄
+      </span>{' '}{name}
+      {showInfo && (
+        <FileInfo path={path} name={name} onClose={() => setShowInfo(false)} />
+      )}
+    </li>
+  );
+}
+
 function FolderTree({ path, name }: { path: string; name: string }) {
   const [open, setOpen] = useState(false);
   const [children, setChildren] = useState<Node[] | null>(null);
@@ -41,7 +95,7 @@ function FolderTree({ path, name }: { path: string; name: string }) {
             child.type === "directory" ? (
               <FolderTree key={child.name} path={path ? path + "/" + child.name : child.name} name={child.name} />
             ) : (
-              <li key={child.name}><span role="img" aria-label="file">🎵</span> {child.name}</li>
+              <FileListItem key={child.name} path={path ? path + "/" + child.name : child.name} name={child.name} />
             )
           )}
         </ul>
@@ -78,7 +132,7 @@ export default function FileBrowser() {
             node.type === "directory" ? (
               <FolderTree key={node.name} path={node.name} name={node.name} />
             ) : (
-              <li key={node.name}><span role="img" aria-label="file">🎵</span> {node.name}</li>
+              <FileListItem key={node.name} path={node.name} name={node.name} />
             )
           )}
         </ul>
