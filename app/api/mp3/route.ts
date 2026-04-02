@@ -2,9 +2,14 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
+import { getUserFromReq } from '../../../../lib/auth';
 
 // API: mostra la lista di file/cartelle di una directory (non ricorsivo)
 export async function GET(req: Request) {
+  // Autenticazione minima: richiede token
+  const user = await getUserFromReq(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const rootDir = process.env.MP3_DIR || '';
   if (!rootDir) {
     return NextResponse.json({ error: 'Variabile MP3_DIR non impostata' }, { status: 500 });
