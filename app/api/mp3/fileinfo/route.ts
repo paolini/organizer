@@ -14,9 +14,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Forbidden: missing read permission' }, { status: 403 });
   }
 
-  const rootDir = process.env.MP3_DIR || '';
+  const rootDir = process.env.TARGET_DIR || '';
   if (!rootDir) {
-    return NextResponse.json({ error: 'Variabile MP3_DIR non impostata' }, { status: 500 });
+    return NextResponse.json({ error: 'Variabile TARGET_DIR non impostata' }, { status: 500 });
   }
   const url = new URL(req.url);
   const relPath = url.searchParams.get('path') || '';

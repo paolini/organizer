@@ -37,7 +37,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Authentication (local, no DB)
 
-This project includes a minimal, file-backed authentication system used to protect the MP3 APIs. It is intended for local development and prototypes only.
+This project includes a minimal, file-backed authentication system used to protect the ORGANIZER APIs. It is intended for local development and prototypes only.
 
 - Where users are stored: `data/users.json` (array of user objects `{ id, username, password }`). Passwords are hashed with `bcryptjs`.
 - JWT: signed with `AUTH_SECRET` environment variable (defaults to a development secret if unset). The API sets an HTTP-only cookie named `token` on successful login.
@@ -50,13 +50,13 @@ Authentication summary (admin/config):
 
 Environment variables (development):
 
-- `MP3_DIR` — path to the root folder containing your audio files. Example: `/home/you/mp3`.
+- `TARGET_DIR` — path to the root folder containing your audio files. Example: `/home/you/mp3`.
 - `AUTH_SECRET` — secret used to sign JWTs. Replace the default for any non-dev usage.
 
 Quick start (local auth + files):
 
 ```bash
-export MP3_DIR=/path/to/your/mp3s
+export TARGET_DIR=/path/to/your/mp3s
 export AUTH_SECRET='replace_with_secure_secret'
 rm -rf .next
 npm run dev
@@ -81,7 +81,7 @@ If you prefer to add users manually to `data/users.json`, make sure the password
 Permissions
 
 - Users include a `permissions` array in `data/users.json`, for example: `"permissions": ["read"]` or `"permissions": ["read","write"]`.
-- New users created via the `signup` endpoint get an empty `permissions` array by default and therefore cannot access protected MP3 APIs until an admin grants them permissions.
+- New users created via the `signup` endpoint get an empty `permissions` array by default and therefore cannot access protected ORGANIZER APIs until an admin grants them permissions.
 - To grant permissions manually, edit `data/users.json` and add the desired permissions to the user object, or implement an admin UI later.
 
 If you need to generate a bcrypt hash locally, use one of the alternatives below (htpasswd / Python / Node) and paste the resulting `$2b$...` hash into `data/users.json`.

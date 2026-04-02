@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  organizer:
+    image: paolini/organizer:0.1.0
+    container_name: organizer
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - TARGET_DIR=/target
+      - AUTH_SECRET=${AUTH_SECRET:-replace_with_strong_secret}
+    ports:
+      - "3000:3000"
+    volumes:
+      # Host folder for ORGANIZER files. Set TARGET_DIR in .env.prod or default to ./mp3
+      - /path/to/organizer/files:/target:rw

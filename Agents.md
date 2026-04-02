@@ -31,7 +31,7 @@ Creare una web app per gestire e taggare file mp3.
 - **Tipi TS:** aggiunti tipi dev `@types/jsonwebtoken` per miglior compatibilità TypeScript.
 
 ## Note operative / next steps
-- Impostare le variabili d'ambiente in sviluppo: `MP3_DIR` (root dei file audio) e `AUTH_SECRET` (sostituire il valore di default per produzione).
+- Impostare le variabili d'ambiente in sviluppo: `TARGET_DIR` (root dei file audio) e `AUTH_SECRET` (sostituire il valore di default per produzione).
 - Riavviare il dev server dopo modifiche agli import o install di tipizzazioni (Turbopack può cacheare moduli):
 
 ```bash
