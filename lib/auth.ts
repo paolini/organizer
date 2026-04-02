@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { parse as parseCookie } from 'cookie';
 
 const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
