@@ -2,13 +2,17 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
-import { getUserFromReq } from '../../../../lib/auth';
+import { getUserFromReq } from '../../../lib/auth';
 
 // API: mostra la lista di file/cartelle di una directory (non ricorsivo)
 export async function GET(req: Request) {
   // Autenticazione minima: richiede token
   const user = await getUserFromReq(req);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Require read permission
+  if (!Array.isArray(user.permissions) || !user.permissions.includes('read')) {
+    return NextResponse.json({ error: 'Forbidden: missing read permission' }, { status: 403 });
+  }
 
   const rootDir = process.env.MP3_DIR || '';
   if (!rootDir) {

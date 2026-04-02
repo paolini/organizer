@@ -11,7 +11,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'User exists' }, { status: 409 });
     }
     const pwHash = await hashPassword(password);
-    const user = { id: Date.now(), username, password: pwHash };
+    // new users created via signup have no permissions by default
+    const user = { id: Date.now(), username, password: pwHash, permissions: [] };
     users.push(user);
     await writeUsers(users);
     return NextResponse.json({ success: true, user: { id: user.id, username: user.username } });
