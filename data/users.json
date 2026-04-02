@@ -3,6 +3,6 @@
     "id": 1775109157114,
     "username": "admin",
     "password": "$2b$10$JfsSIa8LKMIez6AyJt0HiuuFX4zc/Z8IhFpyZ6CkYvtX9K9uEQ.XK",
-    "permissions": ["xread", "xwrite"]
+    "permissions": ["read", "_write"]
   }
 ]
