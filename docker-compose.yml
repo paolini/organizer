@@ -9,8 +9,20 @@ services:
       - PORT=3000
       - TARGET_DIR=/target
       - AUTH_SECRET=${AUTH_SECRET:-replace_with_strong_secret}
+      - DATA_DIR=${DATA_DIR:-./data}
     ports:
       - "3000:3000"
     volumes:
       # Host folder for ORGANIZER files. Set TARGET_DIR in .env.prod or default to ./mp3
       - /path/to/organizer/files:/target:rw
+      # Host folder for persistent app data (users.json, etc.). Set DATA_DIR in .env.prod or default to ./data
+      - ${DATA_DIR:-./data}:/app/data:rw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.organize_navidrome.rule=Host(`organize.navidrome.matb.it`)"
+      - "traefik.http.routers.organize_navidrome.tls.certresolver=le"
+      - "traefik.http.services.organize_navidrome.loadbalancer.server.port=3000"
+    networks:
+      - web
+  web:
+    external: true
