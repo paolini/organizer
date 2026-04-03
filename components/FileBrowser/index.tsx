@@ -12,6 +12,7 @@ function FileBrowser() {
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<SelectionSet>(new Set());
   const [currentDir, setCurrentDir] = useState<string>("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Carica i figli di una cartella e aggiorna fileTree
   const fetchChildren = useCallback(async (path: string) => {
@@ -84,12 +85,14 @@ function FileBrowser() {
                 setSelection={setSelection}
                 fetchChildren={fetchChildren}
                 fileTree={fileTree}
+                refreshKey={refreshKey}
               />
             ) : (
               <FileListItem
                 key={node.name}
                 path={node.name}
                 name={node.name}
+                refreshKey={refreshKey}
                 selected={Array.from(selection).some(sel => sel.path === node.name && sel.type === "file")}
                 onSelect={(checked) => {
                   const newSel = new Set(selection);
@@ -111,14 +114,14 @@ function FileBrowser() {
           <GenreBulkEditor
             selectedCount={selection.size}
             onApply={async genres => {
-              const files = Array.from(selection);
+              const items = Array.from(selection).map(sel => ({ path: sel.path, type: sel.type }));
               // Concatena sempre in una stringa separata da ;
               const genreString = Array.isArray(genres) ? genres.join('; ') : String(genres);
               try {
                 const res = await fetch("/api/mp3/bulk-genre", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ files, genre: genreString })
+                  body: JSON.stringify({ items, genre: genreString })
                 });
                 const data = await res.json();
                 if (!res.ok) {
@@ -128,6 +131,7 @@ function FileBrowser() {
                   const failed = data.results.filter((r: any) => !r.ok);
                   if (failed.length === 0) {
                     alert("Genere aggiornato su tutti i file selezionati.");
+                  setRefreshKey(k => k + 1);
                   } else {
                     console.error("Alcuni file non aggiornati:", failed);
                     alert(`Alcuni file non aggiornati:\n` + failed.map((r: any) => r.file + ": " + r.error).join("\n"));
