@@ -26,6 +26,30 @@ export function FileInfo({ path, name, onClose }: { path: string; name: string; 
         <li>Dimensione: {info.size} bytes</li>
         <li>Formato: {info.ext}</li>
       </ul>
+      {info.ext === "flac" && (
+        <button
+          style={{ marginBottom: 8, background: '#2d8f2d', color: 'white', padding: '6px 12px', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+          onClick={async () => {
+            try {
+              const res = await fetch('/api/mp3/convert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path })
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                alert('Errore conversione: ' + (data.error || 'Impossibile convertire il file.'));
+              } else {
+                alert('Conversione completata! File MP3 generato.');
+              }
+            } catch (e: any) {
+              alert('Errore di rete: ' + String(e));
+            }
+          }}
+        >
+          Converti in MP3
+        </button>
+      )}
       {info.tags && (
         <>
           <h4>Tag audio</h4>
