@@ -5,6 +5,7 @@ import type { SelectionMap, Node } from "./types";
 import { getAllFiles } from "./treeUtils";
 import { FolderTree } from "./FolderTree";
 import { FileListItem } from "./FileListItem";
+import GenreBulkEditor from "../GenreBulkEditor";
 
 function FileBrowser() {
   const [fileTree, setFileTree] = useState<Record<string, Node[] | null>>({});
@@ -81,6 +82,39 @@ function FileBrowser() {
         </ul>
       ) : (
         <div>Nessun file trovato.</div>
+      )}
+      {selection.size > 0 && (
+        <GenreBulkEditor
+          selectedCount={selection.size}
+          onApply={async genres => {
+            const files = Array.from(selection);
+            // Concatena sempre in una stringa separata da ;
+            const genreString = Array.isArray(genres) ? genres.join('; ') : String(genres);
+            try {
+              const res = await fetch("/api/mp3/bulk-genre", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ files, genre: genreString })
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                console.error("Errore API bulk-genre:", data);
+                alert("Errore: " + (data.error || "Impossibile aggiornare i generi"));
+              } else {
+                const failed = data.results.filter((r: any) => !r.ok);
+                if (failed.length === 0) {
+                  alert("Genere aggiornato su tutti i file selezionati.");
+                } else {
+                  console.error("Alcuni file non aggiornati:", failed);
+                  alert(`Alcuni file non aggiornati:\n` + failed.map((r: any) => r.file + ": " + r.error).join("\n"));
+                }
+              }
+            } catch (e: any) {
+              console.error("Errore di rete bulk-genre:", e);
+              alert("Errore di rete: " + String(e));
+            }
+          }}
+        />
       )}
       <div style={{marginTop:16}}>
         <b>Selezionati:</b>
