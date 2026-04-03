@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { SelectionMap, Node } from "./types";
 import { getAllFiles } from "./treeUtils";
 import { FileListItem } from "./FileListItem";
@@ -75,6 +75,34 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
 
   const { checked: isChecked, indeterminate: isIndeterminate } = getFolderState(children, path);
 
+  // Stato per mostrare input upload solo su questa cartella
+  const [showUpload, setShowUpload] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handler upload per questa cartella
+  async function handleFolderUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const data = new FormData();
+    data.append("file", file);
+    data.append("name", file.name);
+    try {
+      const res = await fetch(`/api/mp3/upload?dir=${encodeURIComponent(path)}`, {
+        method: "POST",
+        body: data
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Upload fallito");
+      alert("Upload completato!");
+      fetchChildren(path); // refresh
+    } catch (err: any) {
+      alert("Errore upload: " + String(err));
+    }
+    setShowUpload(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   return (
     <li>
       <input
@@ -91,6 +119,22 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
       <span style={{ cursor: "pointer" }} onClick={handleToggle}>
         {open ? "📂" : "📁"} <b>{name}</b>
       </span>
+      <button
+        style={{ marginLeft: 8, fontSize: 13, padding: '2px 8px', borderRadius: 4, border: '1px solid #aaa', background: '#f5f5f5', cursor: 'pointer' }}
+        onClick={e => { e.stopPropagation(); setShowUpload(v => !v); }}
+        title="Carica file in questa cartella"
+      >
+        Upload
+      </button>
+      {showUpload && (
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ marginLeft: 8 }}
+          onChange={handleFolderUpload}
+          onClick={e => e.stopPropagation()}
+        />
+      )}
       {loading && <span> (caricamento...)</span>}
       {error && <div style={{ color: "red" }}>Errore: {error}</div>}
       {open && children && (
