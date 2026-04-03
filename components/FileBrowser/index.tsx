@@ -1,17 +1,11 @@
-"use client";
-
-import React, { useEffect, useState, useCallback } from "react";
-import type { SelectionMap, Node } from "./types";
-import { getAllFiles } from "./treeUtils";
-import { FolderTree } from "./FolderTree";
-import { FileListItem } from "./FileListItem";
-import GenreBulkEditor from "../GenreBulkEditor";
 
 function FileBrowser() {
+  // Tutti gli hook DEVONO essere chiamati sempre, subito all'inizio
   const [fileTree, setFileTree] = useState<Record<string, Node[] | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<SelectionMap>(new Set());
+  const [currentDir, setCurrentDir] = useState<string>("");
 
   // Carica i figli di una cartella e aggiorna fileTree
   const fetchChildren = useCallback(async (path: string) => {
@@ -36,14 +30,61 @@ function FileBrowser() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div>Caricamento...</div>;
-  if (error) return <div style={{ color: 'red' }}>Errore: {error}</div>;
+  // Aggiorna currentDir quando si naviga (solo root qui, FolderTree può essere esteso per sottocartelle)
+  useEffect(() => { setCurrentDir(""); }, []);
+
+  // Upload handler
+  async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fileInput = form.elements.namedItem("file") as HTMLInputElement;
+    if (!fileInput?.files?.length) return alert("Seleziona un file da caricare");
+    const file = fileInput.files[0];
+    const data = new FormData();
+    data.append("file", file);
+    data.append("name", file.name);
+    try {
+      const res = await fetch(`/api/mp3/upload?dir=${encodeURIComponent(currentDir)}`, {
+        method: "POST",
+        body: data
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Upload fallito");
+      alert("Upload completato!");
+      // Refresh fileTree
+      fetchChildren(currentDir);
+    } catch (err: any) {
+      alert("Errore upload: " + String(err));
+    }
+    fileInput.value = "";
+  }
+        method: "POST",
+        body: data
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Upload fallito");
+      alert("Upload completato!");
+      // Refresh fileTree
+      fetchChildren(currentDir);
+    } catch (err: any) {
+      alert("Errore upload: " + String(err));
+    }
+    fileInput.value = "";
+  }
 
   const root = fileTree[""];
 
   return (
     <div>
       <h2>File e cartelle disponibili</h2>
+      {/* Form upload nella cartella corrente (solo root qui, estendibile) */}
+      <form onSubmit={handleUpload} style={{ marginBottom: 16 }}>
+        <input type="file" name="file" />
+        <button type="submit">Upload</button>
+        <span style={{ marginLeft: 8, color: '#888', fontSize: 13 }}>
+          {currentDir ? `Cartella: ${currentDir}` : "Cartella: root"}
+        </span>
+      </form>
       {root && root.length > 0 ? (
         <ul style={{ listStyle: "none", paddingLeft: 0 }}>
           {root.map((node) =>

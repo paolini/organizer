@@ -14,9 +14,16 @@ RUN npm run build
 # Remove devDependencies to keep only production modules
 RUN npm prune --production
 
+
 FROM node:24.14.1-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+# Install ffmpeg (and clean up apt cache)
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends ffmpeg \
+	&& rm -rf /var/lib/apt/lists/*
+
 
 # Copy only the built artifacts and production node_modules
 COPY --from=builder /app/.next ./.next
