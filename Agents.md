@@ -23,7 +23,46 @@ Creare una web app per gestire e taggare file mp3.
 - **Storage:** File system locale
 
 ## Stato attuale (aggiornamento)
-- **File browser:** implementato `FileBrowser` client in `components/` con espansione cartelle on-demand.
+
+## Struttura dati file browser
+
+- **fileTree**:  
+	Oggetto React state di tipo `Record<string, Node[] | null>`.  
+	- Chiave: percorso della cartella ("" per la root, oppure "subdir", "subdir/nome", ecc.)
+	- Valore: array di nodi figli (`Node[]`) se la cartella è stata caricata, `null` se la cartella è vuota o non ancora caricata.
+
+- **Node**:  
+	```ts
+	type Node = {
+		name: string; // nome file o cartella
+		type: "file" | "directory";
+	}
+	```
+
+- **SelectionMap**:  
+	`Set<string>`  
+	Contiene i path completi dei file selezionati. Solo i file sono tracciati, non le cartelle.
+
+- **FileInfoData**:  
+	```ts
+	type FileInfoData = {
+		size: number;
+		ext: string;
+		tags?: Record<string, unknown>;
+	}
+	```
+	Usato per mostrare info/tag di un file.
+
+- **getAllFiles**:  
+	Funzione ricorsiva che, dato un array di nodi e un path di base, restituisce tutti i path dei file contenuti (anche nelle sottocartelle).
+
+- **File browser:**
+	- Implementato `FileBrowser` client in `components/` con espansione cartelle on-demand e selezione ricorsiva di file/folder.
+	- Stato centralizzato: la struttura delle cartelle (`fileTree`) è mantenuta in un unico oggetto React state, che distingue tra cartelle vuote, non caricate e popolate.
+	- Selezione ricorsiva: la selezione/deselezione di una cartella seleziona tutti i file contenuti (anche nelle sottocartelle) e aggiorna lo stato dei checkbox (checked/indeterminate) in modo coerente.
+	- Solo i file sono tracciati nello stato di selezione, non le cartelle.
+	- Fixati bug di runtime (es. accesso a cartelle root non inizializzate, errori React sui componenti e sugli hook).
+	- UI aggiornata: lo stato checked/indeterminate delle cartelle riflette la selezione effettiva dei file figli.
 - **Metadata:** integrata la lettura dei tag audio server-side con `music-metadata` (gestisce mp3, flac, m4a, wav).
 - **Autenticazione minima:** backend JWT + `bcryptjs` (file-based users in `data/users.json`), rotte `/api/auth/*` presenti (signup/login/logout/me).
 - **Protezione API:** le API `/api/mp3` e `/api/mp3/fileinfo` richiedono autenticazione via cookie `token`.
