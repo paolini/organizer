@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
         ffmpeg(absPath)
           .output(mp3Path)
           .audioCodec("libmp3lame")
+          .audioBitrate(320)
           .on("end", resolve)
           .on("error", reject)
           .run();
