@@ -25,6 +25,17 @@ export function FileInfo({ path, name, onClose }: { path: string; name: string; 
       <ul>
         <li>Dimensione: {info.size} bytes</li>
         <li>Formato: {info.ext}</li>
+        <li>
+          <a
+            href={`/api/mp3/download?path=${encodeURIComponent(path)}`}
+            style={{ color: '#1976d2', textDecoration: 'underline', fontWeight: 500 }}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Scarica file
+          </a>
+        </li>
       </ul>
       {info.ext === "flac" && (
         <button
