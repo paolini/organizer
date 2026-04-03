@@ -1,3 +1,58 @@
+# Struttura e logica del progetto
+
+## Componenti principali
+
+- **/components/FileBrowser/**
+	- `FileBrowser.tsx`: entry point del file browser, gestisce lo stato centrale di selezione (`selection`), la struttura delle cartelle (`fileTree`) e la logica di caricamento.
+	- `FolderTree.tsx`: visualizza ricorsivamente le cartelle, gestisce la selezione/deselezione ricorsiva di tutti i file contenuti in una cartella, mostra i pulsanti di azione (es. "Sposta qui").
+	- `FileListItem.tsx`: rappresenta un singolo file, gestisce la selezione del file e mostra info dettagliate.
+	- `treeUtils.ts`: utility per ricavare ricorsivamente tutti i file contenuti in una cartella (`getAllFiles`).
+	- `types.ts`: definisce i tipi TypeScript condivisi (`Node`, `NodeSelection`, `SelectionSet`, ecc).
+
+- **/app/api/mp3/**
+	- API REST per operazioni su file audio: lista, upload, download, modifica tag, spostamento, conversione, ecc.
+	- Route di interesse: `/api/mp3/move` (spostamento file), `/api/mp3/convert` (conversione FLAC→MP3), `/api/mp3/bulk-genre` (modifica bulk genere), `/api/mp3/fileinfo` (dettagli/tag file).
+
+- **/lib/**
+	- Funzioni di utilità lato server, es. wrapper per node-id3, validazione auth, ecc.
+
+- **/data/**
+	- `users.json`: utenti per autenticazione file-based (sviluppo/demo).
+
+## Stato e selezione file
+
+- La struttura delle cartelle (`fileTree`) è uno stato React di tipo `Record<string, Node[] | null>`, dove la chiave è il percorso della cartella e il valore è l'array dei nodi figli (file/cartelle) o `null` se non ancora caricata.
+- La selezione (`selection`) è un `Set<NodeSelection>`, dove ogni elemento è `{ path: string, type: "file" | "directory" }`. Solo i file vengono effettivamente tracciati per le azioni bulk.
+- Quando si seleziona una cartella, viene aggiunto/rimosso solo l'oggetto `{ path, type: "directory" }` nella selezione. I file contenuti non vengono selezionati automaticamente.
+- La funzione `getAllFiles` restituisce tutti i path dei file contenuti in una cartella e sottocartelle (usata per operazioni bulk, non per la selezione).
+
+## Move API: funzionamento
+
+- Il pulsante "Sposta qui" serializza la selezione in un array `items`:
+	```js
+	const items = Array.from(selection).map(sel => ({ path: sel?.path ?? "", type: sel?.type ?? "" }));
+	```
+- Il payload inviato alla API `/api/mp3/move` è:
+	```json
+	{
+		"items": [ { "path": "...", "type": "file" }, ... ],
+		"destDir": "..."
+	}
+	```
+- È fondamentale che la selezione sia sempre un array di oggetti `{ path, type }` e mai solo stringhe, altrimenti la move API riceve `{ path: '', type: '' }` e non funziona.
+
+## Debug e sviluppo
+
+- Lo stato della selezione è sempre visibile in debug come JSON in fondo al file browser.
+- In caso di problemi con le azioni bulk, controllare che la selezione sia coerente e che tutti i punti di aggiornamento usino `{ path, type }`.
+
+## Estendibilità
+
+- La struttura è pensata per essere facilmente estendibile: nuove azioni bulk, filtri, visualizzazioni, ecc. possono essere aggiunte centralizzando la logica in `FileBrowser` e propagando lo stato ai componenti figli.
+
+---
+
+Questa sezione fornisce una panoramica tecnica utile per sviluppatori che vogliono comprendere rapidamente la struttura e le logiche chiave del progetto.
 ### Altro esempio
 
 {
@@ -110,8 +165,7 @@ Creare una web app per gestire e taggare file mp3.
 - **File browser:**
 	- Implementato `FileBrowser` client in `components/` con espansione cartelle on-demand e selezione ricorsiva di file/folder.
 	- Stato centralizzato: la struttura delle cartelle (`fileTree`) è mantenuta in un unico oggetto React state, che distingue tra cartelle vuote, non caricate e popolate.
-	- Selezione ricorsiva: la selezione/deselezione di una cartella seleziona tutti i file contenuti (anche nelle sottocartelle) e aggiorna lo stato dei checkbox (checked/indeterminate) in modo coerente.
-	- Solo i file sono tracciati nello stato di selezione, non le cartelle.
+	- La selezione di una cartella aggiunge solo la cartella stessa alla selezione (come `{ path, type: "directory" }`), senza selezionare ricorsivamente i file contenuti.
 	- Fixati bug di runtime (es. accesso a cartelle root non inizializzate, errori React sui componenti e sugli hook).
 	- UI aggiornata: lo stato checked/indeterminate delle cartelle riflette la selezione effettiva dei file figli.
 - **Metadata:** lettura tag audio server-side con `music-metadata` (mp3, flac, m4a, wav). Scrittura tag mp3 con `node-id3` asincrona (`update`).

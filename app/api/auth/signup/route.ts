@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readUsers, writeUsers, hashPassword } from '../../../../lib/auth';
+import { readUsers, writeUsers, hashPassword } from '../../_lib/auth';
 
 export async function POST(req: Request) {
   try {

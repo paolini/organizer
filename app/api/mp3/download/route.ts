@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
-import { getUserFromReq } from '../../../../lib/auth';
+import { getUserFromReq } from '../../_lib/auth';
 import { createReadStream } from 'fs';
 
 // API: download file audio

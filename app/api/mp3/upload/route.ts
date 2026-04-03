@@ -1,6 +1,6 @@
 import path from 'path';
 import { NextResponse } from 'next/server';
-import { getUserFromReq } from '../../../../lib/auth';
+import { getUserFromReq } from '../../_lib/auth';
 import fs from 'fs/promises';
 
 export const runtime = 'nodejs'; // Forza Node.js runtime per supporto fs

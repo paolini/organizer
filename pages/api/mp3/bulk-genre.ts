@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import nodeID3 from 'node-id3';
-import { getUserFromReq } from '../../../lib/auth';
+import { getUserFromReq } from '../../../app/api/_lib/auth';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

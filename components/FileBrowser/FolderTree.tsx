@@ -1,16 +1,15 @@
 import { useState, useRef } from "react";
-import type { SelectionMap, Node } from "./types";
-import { getAllFiles } from "./treeUtils";
+import type { SelectionSet, NodeSelection, Node } from "./types";
 import { FileListItem } from "./FileListItem";
 
 export function FolderTree({ path, name, selection, setSelection, fetchChildren, fileTree, onSelect }: {
   path: string;
   name: string;
-  selection: SelectionMap;
-  setSelection: (sel: SelectionMap) => void;
+  selection: SelectionSet;
+  setSelection: (sel: SelectionSet) => void;
   fetchChildren: (path: string) => Promise<Node[]>;
   fileTree: Record<string, Node[] | null>;
-  onSelect: (checked: boolean) => void;
+  onSelect?: (checked: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,53 +26,19 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
     setOpen((v) => !v);
   };
 
-  async function fetchAllFilesRecursively(basePath: string): Promise<string[]> {
-    let files: string[] = [];
-    let children = fileTree[basePath];
-    if (children === undefined) {
-      children = await fetchChildren(basePath);
+  const handleSelect = (checked: boolean) => {
+    const newSel = new Set(selection);
+    if (checked) {
+      newSel.add({ path, type: "directory" });
+    } else {
+      Array.from(newSel).forEach(sel => {
+        if (sel.path === path && sel.type === "directory") newSel.delete(sel);
+      });
     }
-    if (!children) return files;
-    for (const n of children) {
-      const p = basePath ? basePath + "/" + n.name : n.name;
-      if (n.type === "file") {
-        files.push(p);
-      } else if (n.type === "directory") {
-        const subFiles = await fetchAllFilesRecursively(p);
-        files = files.concat(subFiles);
-      }
-    }
-    return files;
-  }
-
-  const handleSelect = async (checked: boolean) => {
-    setLoading(true);
-    try {
-      const allFiles = await fetchAllFilesRecursively(path);
-      const newSel = new Set(selection);
-      if (checked) {
-        allFiles.forEach(f => newSel.add(f));
-      } else {
-        allFiles.forEach(f => newSel.delete(f));
-      }
-      setSelection(newSel);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoading(false);
-    }
+    setSelection(newSel);
   };
 
-  function getFolderState(nodes: Node[] | null | undefined, base: string): { checked: boolean, indeterminate: boolean } {
-    const allFiles = getAllFiles(nodes, base, fileTree);
-    const selectedCount = allFiles.filter(f => selection.has(f)).length;
-    return {
-      checked: allFiles.length > 0 && selectedCount === allFiles.length,
-      indeterminate: selectedCount > 0 && selectedCount < allFiles.length
-    };
-  }
-
-  const { checked: isChecked, indeterminate: isIndeterminate } = getFolderState(children, path);
+  const isChecked = Array.from(selection).some(sel => sel.path === path && sel.type === "directory");
 
   // Stato per mostrare input upload solo su questa cartella
   const [showUpload, setShowUpload] = useState(false);
@@ -109,16 +74,51 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
         type="checkbox"
         style={{ marginRight: 4 }}
         checked={isChecked}
-        ref={el => { if (el) el.indeterminate = isIndeterminate; }}
         disabled={loading}
         onChange={e => {
-          onSelect(e.target.checked);
-          void handleSelect(e.target.checked);
+          handleSelect(e.target.checked);
         }}
       />
       <span style={{ cursor: "pointer" }} onClick={handleToggle}>
         {open ? "📂" : "📁"} <b>{name}</b>
       </span>
+      {/* Pulsante Sposta qui */}
+      {selection.size > 0 && (
+          <button
+            style={{ marginLeft: 8, fontSize: 13, padding: '2px 8px', borderRadius: 4, border: '1px solid #2d8f2d', background: '#eaffea', cursor: 'pointer', fontWeight: 600 }}
+            title="Sposta qui gli elementi selezionati"
+            onClick={async e => {
+              e.stopPropagation();
+              if (!window.confirm(`Spostare ${selection.size} elementi qui?`)) return;
+              try {
+                console.log("[UI] selection:", selection);
+                const items = Array.from(selection).map(sel => {
+                  const obj = { path: sel?.path ?? "", type: sel?.type ?? "" };
+                  console.log("[UI] item serializzato:", obj);
+                  return obj;
+                });
+                console.log("[UI] items inviati:", items);
+                const res = await fetch("/api/mp3/move", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ items, destDir: path })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                  alert("Errore spostamento: " + (data.error || "Impossibile spostare i file"));
+                } else {
+                  alert("Spostamento completato!");
+                  setSelection(new Set());
+                  fetchChildren(path); // aggiorna la cartella di destinazione
+                }
+              } catch (err) {
+                alert("Errore di rete: " + String(err));
+              }
+            }}
+          >
+            Sposta qui
+          </button>
+      )}
       <button
         style={{ marginLeft: 8, fontSize: 13, padding: '2px 8px', borderRadius: 4, border: '1px solid #aaa', background: '#f5f5f5', cursor: 'pointer' }}
         onClick={e => { e.stopPropagation(); setShowUpload(v => !v); }}
@@ -149,25 +149,20 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
                 setSelection={setSelection}
                 fetchChildren={fetchChildren}
                 fileTree={fileTree}
-                onSelect={(checked) => {
-                  const childPath = path ? path + "/" + child.name : child.name;
-                  const allFiles = getAllFiles(fileTree[childPath], childPath, fileTree);
-                  const newSel = new Set(selection);
-                  if (checked) allFiles.forEach((f: string) => newSel.add(f));
-                  else allFiles.forEach((f: string) => newSel.delete(f));
-                  setSelection(newSel);
-                }}
               />
             ) : (
               <FileListItem
                 key={child.name}
                 path={path ? path + "/" + child.name : child.name}
                 name={child.name}
-                selected={selection.has(path ? path + "/" + child.name : child.name)}
+                selected={Array.from(selection).some(sel => sel.path === (path ? path + "/" + child.name : child.name) && sel.type === "file")}
                 onSelect={(checked) => {
+                  const filePath = path ? path + "/" + child.name : child.name;
                   const newSel = new Set(selection);
-                  if (checked) newSel.add(path ? path + "/" + child.name : child.name);
-                  else newSel.delete(path ? path + "/" + child.name : child.name);
+                  if (checked) newSel.add({ path: filePath, type: "file" });
+                  else Array.from(newSel).forEach(sel => {
+                    if (sel.path === filePath && sel.type === "file") newSel.delete(sel);
+                  });
                   setSelection(newSel);
                 }}
               />

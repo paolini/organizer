@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readUsers, verifyPassword, signToken } from '../../../../lib/auth';
+import { readUsers, verifyPassword, signToken } from '../../_lib/auth';
 import { serialize } from 'cookie';
 
 export async function POST(req: Request) {
