@@ -10,9 +10,7 @@
 			"no": 1,
 			"of": 12
 		},
-		"genre": [
-			"Italiana; Folk"
-		]
+		"genre": "Italiana; Folk"
 	},
 	"pictures": [
 		{
@@ -91,9 +89,7 @@ Creare una web app per gestire e taggare file mp3.
 			"no": 1,
 			"of": null
 		},
-		"genre": [
-			"Alternative"
-		]
+		"genre": "Alternative"
 	},
 	"pictures": [
 		{
@@ -118,22 +114,32 @@ Creare una web app per gestire e taggare file mp3.
 	- Solo i file sono tracciati nello stato di selezione, non le cartelle.
 	- Fixati bug di runtime (es. accesso a cartelle root non inizializzate, errori React sui componenti e sugli hook).
 	- UI aggiornata: lo stato checked/indeterminate delle cartelle riflette la selezione effettiva dei file figli.
-- **Metadata:** integrata la lettura dei tag audio server-side con `music-metadata` (gestisce mp3, flac, m4a, wav).
-- **Autenticazione minima:** backend JWT + `bcryptjs` (file-based users in `data/users.json`), rotte `/api/auth/*` presenti (signup/login/logout/me).
+- **Metadata:** lettura tag audio server-side con `music-metadata` (mp3, flac, m4a, wav). Scrittura tag mp3 con `node-id3` asincrona (`update`).
+- **Autenticazione minima:** backend JWT + `bcryptjs` (file-based users in `data/users.json`), rotte `/api/auth/*` (signup/login/logout/me).
 - **Protezione API:** le API `/api/mp3` e `/api/mp3/fileinfo` richiedono autenticazione via cookie `token`.
-- **UI base auth:** pagine client per `/login` e `/signup` aggiunte; header globale mostra utente e logout.
+- **UI base auth:** pagine client per `/login` e `/signup`; header globale mostra utente e logout.
 - **Tipi TS:** aggiunti tipi dev `@types/jsonwebtoken` per miglior compatibilità TypeScript.
+- **Compatibilità API:** le funzioni di autenticazione ora accettano sia `NextApiRequest` che `Request` (compatibile pages/api e app router).
 
 ## Note operative / next steps
 - Impostare le variabili d'ambiente in sviluppo: `TARGET_DIR` (root dei file audio) e `AUTH_SECRET` (sostituire il valore di default per produzione).
-- Riavviare il dev server dopo modifiche agli import o install di tipizzazioni (Turbopack può cacheare moduli):
+
+Per sviluppo: riavviare il dev server dopo modifiche agli import o install di tipizzazioni (Turbopack può cacheare moduli):
 
 ```bash
 rm -rf .next
 npm run dev
 ```
 
+Per produzione:
+
+```bash
+npm run build
+npm start
+```
+
 - Prossime funzionalità consigliate: proteggere client routes (redirect se non autenticato), UI per modifica/salvataggio tag (server-side write), e migrazione user store da JSON a DB per produzione.
+- Bug risolti: gestione compatibilità API, scrittura tag mp3 asincrona, validazione parametri API aggiornata.
 
 ## Struttura iniziale progetto
 - /pages (o /app)
@@ -146,5 +152,23 @@ npm run dev
 - Definire API per gestione file/tag
 - Creare UI base per lista e modifica tag mp3
 
----
-Aggiungi qui altre idee o preferenze!
+### Conversione FLAC → MP3
+
+- Aggiunto pulsante "Converti in MP3" nella UI:
+  - Appare nei dettagli di un file FLAC (popup info) e sotto il bulk editor se nella selezione ci sono FLAC.
+  - Permette la conversione multipla di tutti i FLAC selezionati.
+- API route `/api/mp3/convert`:
+  - Accetta una lista di file FLAC (relativi alla root audio) e li converte in MP3 usando `fluent-ffmpeg` lato server.
+  - Restituisce l’esito per ogni file (ok/errore).
+- Dipendenza: richiede `fluent-ffmpeg` (npm) e ffmpeg installato sul sistema.
+- Build e test superati con Next.js 16/Turbopack.
+
+- Conversione FLAC→MP3:
+  - Installa la dipendenza: `npm install fluent-ffmpeg`
+  - Assicurati che `ffmpeg` sia installato nel sistema (`ffmpeg -version`)
+  - La conversione avviene nella stessa cartella del file sorgente.
+  - La route API `/api/mp3/convert` accetta `{ files: ["path/file.flac", ...] }` o `{ path: "file.flac" }`.
+  - In caso di warning Turbopack su path/fs, vedi log build: non bloccante.
+
+- Migliorare feedback UI post-conversione (refresh lista, download diretto, ecc.)
+- Gestione errori conversione più dettagliata lato client

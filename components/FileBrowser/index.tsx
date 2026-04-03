@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import type { SelectionMap, Node } from "./types";
 import { getAllFiles } from "./treeUtils";
 import { FolderTree } from "./FolderTree";
@@ -84,37 +84,41 @@ function FileBrowser() {
         <div>Nessun file trovato.</div>
       )}
       {selection.size > 0 && (
-        <GenreBulkEditor
-          selectedCount={selection.size}
-          onApply={async genres => {
-            const files = Array.from(selection);
-            // Concatena sempre in una stringa separata da ;
-            const genreString = Array.isArray(genres) ? genres.join('; ') : String(genres);
-            try {
-              const res = await fetch("/api/mp3/bulk-genre", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ files, genre: genreString })
-              });
-              const data = await res.json();
-              if (!res.ok) {
-                console.error("Errore API bulk-genre:", data);
-                alert("Errore: " + (data.error || "Impossibile aggiornare i generi"));
-              } else {
-                const failed = data.results.filter((r: any) => !r.ok);
-                if (failed.length === 0) {
-                  alert("Genere aggiornato su tutti i file selezionati.");
+        <>
+          <GenreBulkEditor
+            selectedCount={selection.size}
+            onApply={async genres => {
+              const files = Array.from(selection);
+              // Concatena sempre in una stringa separata da ;
+              const genreString = Array.isArray(genres) ? genres.join('; ') : String(genres);
+              try {
+                const res = await fetch("/api/mp3/bulk-genre", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ files, genre: genreString })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                  console.error("Errore API bulk-genre:", data);
+                  alert("Errore: " + (data.error || "Impossibile aggiornare i generi"));
                 } else {
-                  console.error("Alcuni file non aggiornati:", failed);
-                  alert(`Alcuni file non aggiornati:\n` + failed.map((r: any) => r.file + ": " + r.error).join("\n"));
+                  const failed = data.results.filter((r: any) => !r.ok);
+                  if (failed.length === 0) {
+                    alert("Genere aggiornato su tutti i file selezionati.");
+                  } else {
+                    console.error("Alcuni file non aggiornati:", failed);
+                    alert(`Alcuni file non aggiornati:\n` + failed.map((r: any) => r.file + ": " + r.error).join("\n"));
+                  }
                 }
+              } catch (e: any) {
+                console.error("Errore di rete bulk-genre:", e);
+                alert("Errore di rete: " + String(e));
               }
-            } catch (e: any) {
-              console.error("Errore di rete bulk-genre:", e);
-              alert("Errore di rete: " + String(e));
-            }
-          }}
-        />
+            }}
+          />
+          {/* Pulsante conversione FLAC->MP3 */}
+          <ConvertFlacToMp3Button selection={selection} />
+        </>
       )}
       <div style={{marginTop:16}}>
         <b>Selezionati:</b>
@@ -124,4 +128,45 @@ function FileBrowser() {
   );
 }
 
+
 export default FileBrowser;
+
+// Pulsante per la conversione multipla FLAC->MP3
+function ConvertFlacToMp3Button({ selection }: { selection: Set<string> }) {
+  const flacFiles = Array.from(selection).filter(f => f.toLowerCase().endsWith('.flac'));
+  const [loading, setLoading] = React.useState(false);
+  if (flacFiles.length === 0) return null;
+  return (
+    <button
+      style={{ marginTop: 12, background: '#2d8f2d', color: 'white', padding: '8px 18px', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+      disabled={loading}
+      onClick={async () => {
+        setLoading(true);
+        try {
+          const res = await fetch('/api/mp3/convert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: flacFiles })
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            alert('Errore conversione: ' + (data.error || 'Impossibile convertire i file.'));
+          } else {
+            const failed = data.results?.filter((r: any) => !r.ok) || [];
+            if (failed.length === 0) {
+              alert('Conversione completata! Tutti i file FLAC selezionati sono stati convertiti in MP3.');
+            } else {
+              alert('Alcuni file non sono stati convertiti:\n' + failed.map((r: any) => r.file + ': ' + r.error).join('\n'));
+            }
+          }
+        } catch (e: any) {
+          alert('Errore di rete: ' + String(e));
+        } finally {
+          setLoading(false);
+        }
+      }}
+    >
+      {loading ? 'Conversione in corso...' : `Converti ${flacFiles.length} FLAC in MP3`}
+    </button>
+  );
+}
