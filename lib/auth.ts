@@ -3,6 +3,7 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { parse as parseCookie } from 'cookie';
+import type { NextApiRequest } from 'next';
 
 const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
 const AUTH_SECRET = process.env.AUTH_SECRET || 'dev_secret_change_me';
@@ -41,13 +42,23 @@ export function verifyToken(token: string) {
   }
 }
 
-export function getTokenFromReq(req: Request) {
-  const cookieHeader = req.headers.get('cookie') || '';
+export function getTokenFromReq(req: any) {
+  // Compatibile sia con Web API Request (app router) che NextApiRequest (pages router)
+  let cookieHeader = '';
+  if (req?.headers) {
+    if (typeof req.headers.get === 'function') {
+      cookieHeader = req.headers.get('cookie') || '';
+    } else if (typeof req.headers.cookie === 'string') {
+      cookieHeader = req.headers.cookie;
+    } else if (typeof req.headers['cookie'] === 'string') {
+      cookieHeader = req.headers['cookie'];
+    }
+  }
   const cookies = parseCookie(cookieHeader || '');
   return cookies.token as string | undefined;
 }
 
-export async function getUserFromReq(req: Request) {
+export async function getUserFromReq(req: Request | NextApiRequest) {
   const token = getTokenFromReq(req);
   if (!token) return null;
   const payload = verifyToken(token) as any;

@@ -1,3 +1,32 @@
+### Altro esempio
+
+{
+	"common": {
+		"title": "Alice",
+		"artist": "Francesco De Gregori",
+		"album": "Alice non lo sa",
+		"year": 1973,
+		"track": {
+			"no": 1,
+			"of": 12
+		},
+		"genre": [
+			"Italiana; Folk"
+		]
+	},
+	"pictures": [
+		{
+			"mime": "image/jpeg",
+			"description": null,
+			"size": 60462
+		}
+	],
+	"format": {
+		"container": "MPEG",
+		"codec": "MPEG 1 Layer 3",
+		"sampleRate": 44100
+	}
+}
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
@@ -26,12 +55,10 @@ Creare una web app per gestire e taggare file mp3.
 
 ## Struttura dati file browser
 
-- **fileTree**:  
 	Oggetto React state di tipo `Record<string, Node[] | null>`.  
 	- Chiave: percorso della cartella ("" per la root, oppure "subdir", "subdir/nome", ecc.)
 	- Valore: array di nodi figli (`Node[]`) se la cartella è stata caricata, `null` se la cartella è vuota o non ancora caricata.
 
-- **Node**:  
 	```ts
 	type Node = {
 		name: string; // nome file o cartella
@@ -39,11 +66,9 @@ Creare una web app per gestire e taggare file mp3.
 	}
 	```
 
-- **SelectionMap**:  
 	`Set<string>`  
 	Contiene i path completi dei file selezionati. Solo i file sono tracciati, non le cartelle.
 
-- **FileInfoData**:  
 	```ts
 	type FileInfoData = {
 		size: number;
@@ -53,7 +78,37 @@ Creare una web app per gestire e taggare file mp3.
 	```
 	Usato per mostrare info/tag di un file.
 
-- **getAllFiles**:  
+
+### Esempio di informazioni visualizzate su un file audio
+
+{
+	"common": {
+		"title": "Human Behaviour",
+		"artist": "Björk",
+		"album": "Debut",
+		"year": 1993,
+		"track": {
+			"no": 1,
+			"of": null
+		},
+		"genre": [
+			"Alternative"
+		]
+	},
+	"pictures": [
+		{
+			"mime": "image/jpeg",
+			"description": null,
+			"size": 455677
+		}
+	],
+	"format": {
+		"container": "FLAC",
+		"codec": "FLAC",
+		"sampleRate": 44100
+	}
+}
+
 	Funzione ricorsiva che, dato un array di nodi e un path di base, restituisce tutti i path dei file contenuti (anche nelle sottocartelle).
 
 - **File browser:**

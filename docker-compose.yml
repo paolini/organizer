@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   organizer:
     image: paolini/organizer:0.1.0
@@ -17,12 +15,3 @@ services:
       - /path/to/organizer/files:/target:rw
       # Host folder for persistent app data (users.json, etc.). Set DATA_DIR in .env.prod or default to ./data
       - ${DATA_DIR:-./data}:/app/data:rw
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.organize_navidrome.rule=Host(`organize.navidrome.matb.it`)"
-      - "traefik.http.routers.organize_navidrome.tls.certresolver=le"
-      - "traefik.http.services.organize_navidrome.loadbalancer.server.port=3000"
-    networks:
-      - web
-  web:
-    external: true
