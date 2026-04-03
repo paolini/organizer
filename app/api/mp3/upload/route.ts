@@ -29,7 +29,9 @@ export async function POST(req: Request) {
   if (!file || typeof file === 'string') {
     return NextResponse.json({ error: 'File mancante o non valido' }, { status: 400 });
   }
-  const fileName = formData.get('name') || file.name || 'upload.bin';
+  const fileName = typeof formData.get('name') === 'string'
+    ? formData.get('name') as string
+    : (file as File).name || 'upload.bin';
   const destPath = path.join(targetDir, path.basename(fileName));
   try {
     const arrayBuffer = await file.arrayBuffer();

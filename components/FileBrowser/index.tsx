@@ -1,4 +1,10 @@
-
+"use client";
+import { FolderTree } from "./FolderTree";
+import type { SelectionMap, Node } from "./types";
+import { getAllFiles } from "./treeUtils";
+import { FileListItem } from "./FileListItem";
+import GenreBulkEditor from "../GenreBulkEditor";
+import React, { useState, useEffect, useCallback } from "react";
 function FileBrowser() {
   // Tutti gli hook DEVONO essere chiamati sempre, subito all'inizio
   const [fileTree, setFileTree] = useState<Record<string, Node[] | null>>({});
@@ -45,19 +51,7 @@ function FileBrowser() {
     data.append("name", file.name);
     try {
       const res = await fetch(`/api/mp3/upload?dir=${encodeURIComponent(currentDir)}`, {
-        method: "POST",
-        body: data
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Upload fallito");
-      alert("Upload completato!");
-      // Refresh fileTree
-      fetchChildren(currentDir);
-    } catch (err: any) {
-      alert("Errore upload: " + String(err));
-    }
-    fileInput.value = "";
-  }
+
         method: "POST",
         body: data
       });
@@ -77,14 +71,7 @@ function FileBrowser() {
   return (
     <div>
       <h2>File e cartelle disponibili</h2>
-      {/* Form upload nella cartella corrente (solo root qui, estendibile) */}
-      <form onSubmit={handleUpload} style={{ marginBottom: 16 }}>
-        <input type="file" name="file" />
-        <button type="submit">Upload</button>
-        <span style={{ marginLeft: 8, color: '#888', fontSize: 13 }}>
-          {currentDir ? `Cartella: ${currentDir}` : "Cartella: root"}
-        </span>
-      </form>
+      {/* Upload globale rimosso: ora solo per-folder */}
       {root && root.length > 0 ? (
         <ul style={{ listStyle: "none", paddingLeft: 0 }}>
           {root.map((node) =>
