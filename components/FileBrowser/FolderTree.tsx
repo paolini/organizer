@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import type { SelectionSet, NodeSelection, Node } from "./types";
 import { FileListItem } from "./FileListItem";
 
-export function FolderTree({ path, name, selection, setSelection, fetchChildren, fileTree, onSelect }: {
+export function FolderTree({ path, name, selection, setSelection, fetchChildren, fileTree, onSelect, refreshKey }: {
   path: string;
   name: string;
   selection: SelectionSet;
@@ -10,6 +10,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
   fetchChildren: (path: string) => Promise<Node[]>;
   fileTree: Record<string, Node[] | null>;
   onSelect?: (checked: boolean) => void;
+  refreshKey?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -149,12 +150,14 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
                 setSelection={setSelection}
                 fetchChildren={fetchChildren}
                 fileTree={fileTree}
+                refreshKey={refreshKey}
               />
             ) : (
               <FileListItem
                 key={child.name}
                 path={path ? path + "/" + child.name : child.name}
                 name={child.name}
+                refreshKey={refreshKey}
                 selected={Array.from(selection).some(sel => sel.path === (path ? path + "/" + child.name : child.name) && sel.type === "file")}
                 onSelect={(checked) => {
                   const filePath = path ? path + "/" + child.name : child.name;

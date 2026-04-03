@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { FileInfo } from "./FileInfo";
 
-export function FileListItem({ path, name, selected, onSelect }: {
+export function FileListItem({ path, name, selected, onSelect, refreshKey }: {
   path: string;
   name: string;
   selected: boolean;
   onSelect: (checked: boolean) => void;
+  refreshKey?: number;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   return (
@@ -28,7 +29,7 @@ export function FileListItem({ path, name, selected, onSelect }: {
         📄
       </span>{' '}{name}
       {showInfo && (
-        <FileInfo path={path} name={name} onClose={() => setShowInfo(false)} />
+        <FileInfo path={path} name={name} onClose={() => setShowInfo(false)} refreshKey={refreshKey} />
       )}
     </li>
   );

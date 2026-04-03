@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import type { FileInfoData } from "./types";
 
-export function FileInfo({ path, name, onClose }: { path: string; name: string; onClose: () => void }) {
+export function FileInfo({ path, name, onClose, refreshKey }: { path: string; name: string; onClose: () => void; refreshKey?: number }) {
   const [info, setInfo] = useState<FileInfoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     fetch(`/api/mp3/fileinfo?path=${encodeURIComponent(path)}`)
       .then((res) => res.json())
       .then((data) => setInfo(data))
       .catch((err) => setError(String(err)))
       .finally(() => setLoading(false));
-  }, [path]);
+  }, [path, refreshKey]);
 
   if (loading) return <div>Caricamento info...</div>;
   if (error) return <div style={{ color: 'red' }}>Errore: {error}</div>;
