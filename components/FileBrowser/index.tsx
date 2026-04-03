@@ -1,6 +1,6 @@
 "use client";
 import { FolderTree } from "./FolderTree";
-import type { SelectionMap, Node } from "./types";
+import type { NodeSelection, SelectionSet, Node } from "./types";
 import { getAllFiles } from "./treeUtils";
 import { FileListItem } from "./FileListItem";
 import GenreBulkEditor from "../GenreBulkEditor";
@@ -10,7 +10,7 @@ function FileBrowser() {
   const [fileTree, setFileTree] = useState<Record<string, Node[] | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selection, setSelection] = useState<SelectionMap>(new Set());
+  const [selection, setSelection] = useState<SelectionSet>(new Set());
   const [currentDir, setCurrentDir] = useState<string>("");
 
   // Carica i figli di una cartella e aggiorna fileTree
@@ -84,24 +84,19 @@ function FileBrowser() {
                 setSelection={setSelection}
                 fetchChildren={fetchChildren}
                 fileTree={fileTree}
-                onSelect={(checked) => {
-                  const allFiles = getAllFiles(fileTree[node.name], node.name, fileTree);
-                  const newSel = new Set(selection);
-                  if (checked) allFiles.forEach((f: string) => newSel.add(f));
-                  else allFiles.forEach((f: string) => newSel.delete(f));
-                  setSelection(newSel);
-                }}
               />
             ) : (
               <FileListItem
                 key={node.name}
                 path={node.name}
                 name={node.name}
-                selected={selection.has(node.name)}
+                selected={Array.from(selection).some(sel => sel.path === node.name && sel.type === "file")}
                 onSelect={(checked) => {
                   const newSel = new Set(selection);
-                  if (checked) newSel.add(node.name);
-                  else newSel.delete(node.name);
+                  if (checked) newSel.add({ path: node.name, type: "file" });
+                  else Array.from(newSel).forEach(sel => {
+                    if (sel.path === node.name && sel.type === "file") newSel.delete(sel);
+                  });
                   setSelection(newSel);
                 }}
               />
@@ -160,8 +155,8 @@ function FileBrowser() {
 export default FileBrowser;
 
 // Pulsante per la conversione multipla FLAC->MP3
-function ConvertFlacToMp3Button({ selection }: { selection: Set<string> }) {
-  const flacFiles = Array.from(selection).filter(f => f.toLowerCase().endsWith('.flac'));
+function ConvertFlacToMp3Button({ selection }: { selection: SelectionSet }) {
+  const flacFiles = Array.from(selection).filter(sel => sel.path.toLowerCase().endsWith('.flac')).map(sel => sel.path);
   const [loading, setLoading] = React.useState(false);
   if (flacFiles.length === 0) return null;
   return (

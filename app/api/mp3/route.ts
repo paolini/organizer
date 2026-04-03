@@ -2,7 +2,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
-import { getUserFromReq } from '../../../lib/auth';
+import { getUserFromReq } from '../_lib/auth';
 
 // API: mostra la lista di file/cartelle di una directory (non ricorsivo)
 export async function GET(req: Request) {

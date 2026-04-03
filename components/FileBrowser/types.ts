@@ -1,4 +1,13 @@
+
+export type NodeSelection = {
+  path: string;
+  type: "file" | "directory";
+};
+
 export type SelectionMap = Set<string>;
+// DEPRECATO: verrà sostituito da Set<NodeSelection>
+
+export type SelectionSet = Set<NodeSelection>;
 
 export type Node = {
   name: string;

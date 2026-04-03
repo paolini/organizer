@@ -14,7 +14,10 @@ export function FileListItem({ path, name, selected, onSelect }: {
         type="checkbox"
         style={{ marginRight: 4 }}
         checked={selected}
-        onChange={e => onSelect(e.target.checked)}
+        onChange={e => {
+          console.log("[UI] FileListItem checkbox", { path, checked: e.target.checked });
+          onSelect(e.target.checked);
+        }}
       />
       <span
         role="img"

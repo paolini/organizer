@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { parseFile } from 'music-metadata';
-import { getUserFromReq } from '../../../../lib/auth';
+import { getUserFromReq } from '../../_lib/auth';
 
 // API: restituisce info base e tag se mp3/flac
 export async function GET(req: Request) {
