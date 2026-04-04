@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import type { SelectionSet, NodeSelection, Node } from "./types";
 import { FileListItem } from "./FileListItem";
 
-export function FolderTree({ path, name, selection, setSelection, fetchChildren, fileTree, onSelect, refreshKey }: {
+export function FolderTree({ path, name, selection, setSelection, fetchChildren, fileTree, onSelect, refreshKey, onRefresh }: {
   path: string;
   name: string;
   selection: SelectionSet;
@@ -11,6 +11,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
   fileTree: Record<string, Node[] | null>;
   onSelect?: (checked: boolean) => void;
   refreshKey?: number;
+  onRefresh?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
       if (!res.ok) throw new Error(result.error || "Upload fallito");
       alert("Upload completato!");
       fetchChildren(path); // refresh
+      onRefresh?.();
     } catch (err: any) {
       alert("Errore upload: " + String(err));
     }
@@ -151,6 +153,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
                 fetchChildren={fetchChildren}
                 fileTree={fileTree}
                 refreshKey={refreshKey}
+                onRefresh={onRefresh}
               />
             ) : (
               <FileListItem
@@ -158,6 +161,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
                 path={path ? path + "/" + child.name : child.name}
                 name={child.name}
                 refreshKey={refreshKey}
+                onRefresh={onRefresh}
                 selected={Array.from(selection).some(sel => sel.path === (path ? path + "/" + child.name : child.name) && sel.type === "file")}
                 onSelect={(checked) => {
                   const filePath = path ? path + "/" + child.name : child.name;

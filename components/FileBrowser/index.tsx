@@ -67,6 +67,12 @@ function FileBrowser() {
     fileInput.value = "";
   }
 
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(k => k + 1);
+    // Also refresh the current directory tree
+    fetchChildren(currentDir);
+  }, [fetchChildren, currentDir]);
+
   const root = fileTree[""];
 
   return (
@@ -86,6 +92,7 @@ function FileBrowser() {
                 fetchChildren={fetchChildren}
                 fileTree={fileTree}
                 refreshKey={refreshKey}
+                onRefresh={handleRefresh}
               />
             ) : (
               <FileListItem
@@ -93,6 +100,7 @@ function FileBrowser() {
                 path={node.name}
                 name={node.name}
                 refreshKey={refreshKey}
+                onRefresh={handleRefresh}
                 selected={Array.from(selection).some(sel => sel.path === node.name && sel.type === "file")}
                 onSelect={(checked) => {
                   const newSel = new Set(selection);
@@ -144,7 +152,7 @@ function FileBrowser() {
             }}
           />
           {/* Pulsante conversione FLAC->MP3 */}
-          <ConvertFlacToMp3Button selection={selection} />
+          <ConvertFlacToMp3Button selection={selection} onRefresh={handleRefresh} />
         </>
       )}
       <div style={{marginTop:16}}>
@@ -159,7 +167,7 @@ function FileBrowser() {
 export default FileBrowser;
 
 // Pulsante per la conversione multipla FLAC->MP3
-function ConvertFlacToMp3Button({ selection }: { selection: SelectionSet }) {
+function ConvertFlacToMp3Button({ selection, onRefresh }: { selection: SelectionSet; onRefresh?: () => void }) {
   const flacFiles = Array.from(selection).filter(sel => sel.path.toLowerCase().endsWith('.flac')).map(sel => sel.path);
   const [loading, setLoading] = React.useState(false);
   if (flacFiles.length === 0) return null;
@@ -182,6 +190,7 @@ function ConvertFlacToMp3Button({ selection }: { selection: SelectionSet }) {
             const failed = data.results?.filter((r: any) => !r.ok) || [];
             if (failed.length === 0) {
               alert('Conversione completata! Tutti i file FLAC selezionati sono stati convertiti in MP3.');
+              onRefresh?.();
             } else {
               alert('Alcuni file non sono stati convertiti:\n' + failed.map((r: any) => r.file + ': ' + r.error).join('\n'));
             }
