@@ -2,7 +2,17 @@
   {
     "id": 1775109157114,
     "username": "admin",
-    "password": "$2b$10$JfsSIa8LKMIez6AyJt0HiuuFX4zc/Z8IhFpyZ6CkYvtX9K9uEQ.XK",
-    "permissions": ["read", "write"]
+    "password": "$2b$10$DjAh86AZvrDfEm8O8bWdWeR6bf4eqKGf56eKRO48D8.UgbRACbygK",
+    "password_": "$2b$10$JfsSIa8LKMIez6AyJt0HiuuFX4zc/Z8IhFpyZ6CkYvtX9K9uEQ.XK",
+    "permissions": [
+      "read",
+      "write"
+    ]
+  },
+  {
+    "id": 1775291984795,
+    "username": "adminxx",
+    "password": "$2b$10$DjAh86AZvrDfEm8O8bWdWeR6bf4eqKGf56eKRO48D8.UgbRACbygK",
+    "permissions": []
   }
 ]

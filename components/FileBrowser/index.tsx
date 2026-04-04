@@ -23,18 +23,27 @@ function FileBrowser() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/mp3")
-      .then((res) => res.json())
-      .then((data) => {
-        const rootChildren = data.children ?? [];
-        const treeInit: Record<string, Node[] | null> = { "": rootChildren };
-        for (const node of rootChildren) {
-          if (node.type === "directory") treeInit[node.name] = null;
+    (async () => {
+      try {
+        const res = await fetch("/api/mp3");
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data?.error || `API error ${res.status}`);
+          setFileTree(prev => ({ ...prev, "": [] }));
+        } else {
+          const rootChildren = data.children ?? [];
+          const treeInit: Record<string, Node[] | null> = { "": rootChildren };
+          for (const node of rootChildren) {
+            if (node.type === "directory") treeInit[node.name] = null;
+          }
+          setFileTree(prev => ({ ...prev, ...treeInit }));
         }
-        setFileTree(prev => ({ ...prev, ...treeInit }));
-      })
-      .catch((err) => setError(String(err)))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        setError(String(err));
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   // Aggiorna currentDir quando si naviga (solo root qui, FolderTree può essere esteso per sottocartelle)
@@ -78,6 +87,11 @@ function FileBrowser() {
   return (
     <div>
       <h2>File e cartelle disponibili</h2>
+      {error && (
+        <div style={{ color: 'red', marginBottom: 8 }}>
+          Errore: {error}. Se non sei autenticato esegui il login.
+        </div>
+      )}
       {/* Upload globale rimosso: ora solo per-folder */}
       {root && root.length > 0 ? (
         <ul style={{ listStyle: "none", paddingLeft: 0 }}>

@@ -129,6 +129,33 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
       >
         Upload
       </button>
+      <button
+        style={{ marginLeft: 4, fontSize: 13, padding: '2px 8px', borderRadius: 4, border: '1px solid #aaa', background: '#f5f5f5', cursor: 'pointer' }}
+        title="Crea nuova cartella"
+        onClick={async e => {
+          e.stopPropagation();
+          const name = prompt("Nome della nuova cartella:");
+          if (!name || !name.trim()) return;
+          try {
+            const res = await fetch("/api/mp3/mkdir", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ parentDir: path, name: name.trim() })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              alert("Errore: " + (data.error || "Impossibile creare la cartella"));
+            } else {
+              fetchChildren(path);
+              if (!open) setOpen(true);
+            }
+          } catch (err) {
+            alert("Errore di rete: " + String(err));
+          }
+        }}
+      >
+        Nuova cartella
+      </button>
       {showUpload && (
         <input
           type="file"
