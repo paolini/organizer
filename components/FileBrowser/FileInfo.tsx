@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FileInfoData } from "./types";
 
-export function FileInfo({ path, name, onClose, refreshKey }: { path: string; name: string; onClose: () => void; refreshKey?: number }) {
+export function FileInfo({ path, name, onClose, refreshKey, onRefresh }: { path: string; name: string; onClose: () => void; refreshKey?: number; onRefresh?: () => void }) {
   const [info, setInfo] = useState<FileInfoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +53,7 @@ export function FileInfo({ path, name, onClose, refreshKey }: { path: string; na
                 alert('Errore conversione: ' + (data.error || 'Impossibile convertire il file.'));
               } else {
                 alert('Conversione completata! File MP3 generato.');
+                onRefresh?.();
               }
             } catch (e: any) {
               alert('Errore di rete: ' + String(e));
