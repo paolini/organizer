@@ -55,10 +55,11 @@ function FileBrowser() {
     const form = e.currentTarget;
     const fileInput = form.elements.namedItem("file") as HTMLInputElement;
     if (!fileInput?.files?.length) return alert("Seleziona un file da caricare");
-    const file = fileInput.files[0];
     const data = new FormData();
-    data.append("file", file);
-    data.append("name", file.name);
+    Array.from(fileInput.files).forEach((file) => {
+      data.append("file", file);
+      data.append("name", file.name);
+    });
     try {
       const res = await fetch(`/api/mp3/upload?dir=${encodeURIComponent(currentDir)}`, {
 
@@ -67,7 +68,7 @@ function FileBrowser() {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Upload fallito");
-      alert("Upload completato!");
+      alert(`Upload completato! File caricati: ${result.uploaded ?? fileInput.files.length}`);
       // Refresh fileTree
       fetchChildren(currentDir);
     } catch (err: any) {

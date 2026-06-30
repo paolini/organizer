@@ -50,10 +50,11 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
   async function handleFolderUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
     const data = new FormData();
-    data.append("file", file);
-    data.append("name", file.name);
+    Array.from(files).forEach((file) => {
+      data.append("file", file);
+      data.append("name", file.name);
+    });
     try {
       const res = await fetch(`/api/mp3/upload?dir=${encodeURIComponent(path)}`, {
         method: "POST",
@@ -61,7 +62,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Upload fallito");
-      alert("Upload completato!");
+      alert(`Upload completato! File caricati: ${result.uploaded ?? files.length}`);
       fetchChildren(path); // refresh
       onRefresh?.();
     } catch (err: any) {
@@ -159,6 +160,7 @@ export function FolderTree({ path, name, selection, setSelection, fetchChildren,
       {showUpload && (
         <input
           type="file"
+          multiple
           ref={fileInputRef}
           style={{ marginLeft: 8 }}
           onChange={handleFolderUpload}

@@ -25,18 +25,35 @@ export async function POST(req: Request) {
   }
 
   const formData = await req.formData();
-  const file = formData.get('file');
-  if (!file || typeof file === 'string') {
+  const files = formData
+    .getAll('file')
+    .filter((entry): entry is File => typeof entry !== 'string');
+  if (files.length === 0) {
     return NextResponse.json({ error: 'File mancante o non valido' }, { status: 400 });
   }
-  const fileName = typeof formData.get('name') === 'string'
-    ? formData.get('name') as string
-    : (file as File).name || 'upload.bin';
-  const destPath = path.join(targetDir, path.basename(fileName));
+
+  const explicitNames = formData
+    .getAll('name')
+    .filter((entry): entry is string => typeof entry === 'string');
+
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    await fs.writeFile(destPath, Buffer.from(arrayBuffer));
-    return NextResponse.json({ ok: true, file: path.relative(rootDir, destPath) });
+    const savedFiles: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileName = explicitNames[i] || file.name || `upload-${i + 1}.bin`;
+      const destPath = path.join(targetDir, path.basename(fileName));
+      const arrayBuffer = await file.arrayBuffer();
+      await fs.writeFile(destPath, Buffer.from(arrayBuffer));
+      savedFiles.push(path.relative(rootDir, destPath));
+    }
+
+    return NextResponse.json({
+      ok: true,
+      file: savedFiles[0] ?? null,
+      files: savedFiles,
+      uploaded: savedFiles.length,
+    });
   } catch (err) {
     return NextResponse.json({ error: 'Impossibile salvare il file', details: String(err) }, { status: 500 });
   }
