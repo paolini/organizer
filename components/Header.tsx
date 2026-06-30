@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
-export default function Header() {
+export default function Header({ version }: { version: string }) {
   const [user, setUser] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -29,7 +29,9 @@ export default function Header() {
 
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', padding: 12, borderBottom: '1px solid #ddd' }}>
-      <div>Organizer</div>
+      <div>
+        Organizer <span style={{ color: '#666', fontSize: 12 }}>v{version}</span>
+      </div>
       <div>
         {user ? (
           <>
