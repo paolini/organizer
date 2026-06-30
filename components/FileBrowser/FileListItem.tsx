@@ -25,7 +25,7 @@ export function FileListItem({ path, name, selected, onSelect, refreshKey, onRef
         role="img"
         aria-label="file"
         style={{ cursor: "pointer" }}
-        onClick={() => setShowInfo(true)}
+        onClick={() => setShowInfo((prev) => !prev)}
       >
         📄
       </span>{' '}{name}
