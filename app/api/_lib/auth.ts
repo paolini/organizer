@@ -11,15 +11,24 @@ const AUTH_SECRET = process.env.AUTH_SECRET || 'dev_secret_change_me';
 export async function readUsers() {
   try {
     const txt = await fs.readFile(USERS_FILE, 'utf8');
-    return JSON.parse(txt || '[]');
+    const parsed = JSON.parse(txt || '[]');
+    if (!Array.isArray(parsed)) {
+      throw new Error('Invalid users.json format: expected an array');
+    }
+    return parsed;
   } catch (e) {
-    return [];
+    const err = e as { code?: string };
+    // Missing file is valid on first startup.
+    if (err?.code === 'ENOENT') return [];
+    throw e;
   }
 }
 
 export async function writeUsers(users: any[]) {
   await fs.mkdir(path.dirname(USERS_FILE), { recursive: true });
-  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+  const tmpFile = `${USERS_FILE}.tmp`;
+  await fs.writeFile(tmpFile, JSON.stringify(users, null, 2), 'utf8');
+  await fs.rename(tmpFile, USERS_FILE);
 }
 
 export async function hashPassword(password: string) {
