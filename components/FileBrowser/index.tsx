@@ -3,7 +3,7 @@ import { FolderTree } from "./FolderTree";
 import type { NodeSelection, SelectionSet, Node } from "./types";
 import { getAllFiles } from "./treeUtils";
 import { FileListItem } from "./FileListItem";
-import GenreBulkEditor from "../GenreBulkEditor";
+import GenreBulkEditor, { type BulkTagPayload } from "../GenreBulkEditor";
 import React, { useState, useEffect, useCallback } from "react";
 function FileBrowser() {
   // Tutti gli hook DEVONO essere chiamati sempre, subito all'inizio
@@ -136,24 +136,22 @@ function FileBrowser() {
         <>
           <GenreBulkEditor
             selectedCount={selection.size}
-            onApply={async genres => {
+            onApply={async (payload: BulkTagPayload) => {
               const items = Array.from(selection).map(sel => ({ path: sel.path, type: sel.type }));
-              // Concatena sempre in una stringa separata da ;
-              const genreString = Array.isArray(genres) ? genres.join('; ') : String(genres);
               try {
                 const res = await fetch("/api/mp3/bulk-genre", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ items, genre: genreString })
+                  body: JSON.stringify({ items, ...payload })
                 });
                 const data = await res.json();
                 if (!res.ok) {
                   console.error("Errore API bulk-genre:", data);
-                  alert("Errore: " + (data.error || "Impossibile aggiornare i generi"));
+                  alert("Errore: " + (data.error || "Impossibile aggiornare i metadati"));
                 } else {
                   const failed = data.results.filter((r: any) => !r.ok);
                   if (failed.length === 0) {
-                    alert("Genere aggiornato su tutti i file selezionati.");
+                    alert("Metadati aggiornati su tutti i file selezionati.");
                   setRefreshKey(k => k + 1);
                   } else {
                     console.error("Alcuni file non aggiornati:", failed);

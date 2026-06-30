@@ -4,6 +4,14 @@ import nodeID3 from 'node-id3';
 import { getUserFromReq } from '../../../app/api/_lib/auth';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+type BulkUpdateBody = {
+  items: { path: string; type: string }[];
+  genre?: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+};
+
 const AUDIO_EXTS = ['.mp3', '.flac'];
 
 async function collectAudioFiles(dirPath: string): Promise<string[]> {
@@ -37,22 +45,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: 'Variabile TARGET_DIR non impostata' });
   }
 
-  let body;
+  let body: BulkUpdateBody;
   try {
     body = req.body;
     if (typeof body === 'string') body = JSON.parse(body);
-  } catch (e) {
+  } catch {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
-  // Accept { items: [{path, type}], genre }
+  // Accept { items: [{path, type}], genre?, title?, artist?, album? }
   if (!Array.isArray(body.items)) {
-    return res.status(400).json({ error: 'items deve essere array e genre stringa' });
+    return res.status(400).json({ error: 'items deve essere un array' });
   }
   const items: { path: string; type: string }[] = body.items;
 
-  if (typeof body.genre !== 'string' || !body.genre.trim()) {
-    return res.status(400).json({ error: 'genre deve essere una stringa non vuota' });
+  const tagsToWrite: Record<string, string> = {};
+  if (typeof body.genre === 'string' && body.genre.trim()) tagsToWrite.genre = body.genre.trim();
+  if (typeof body.title === 'string' && body.title.trim()) tagsToWrite.title = body.title.trim();
+  if (typeof body.artist === 'string' && body.artist.trim()) tagsToWrite.artist = body.artist.trim();
+  if (typeof body.album === 'string' && body.album.trim()) tagsToWrite.album = body.album.trim();
+
+  if (Object.keys(tagsToWrite).length === 0) {
+    return res.status(400).json({ error: 'Inserisci almeno un campo da aggiornare (genre, title, artist, album)' });
   }
 
   // Resolve items to actual audio file paths
@@ -83,13 +97,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       if (ext === '.mp3') {
         await fs.access(targetFile);
-        const ok = await nodeID3.update({ genre: body.genre }, targetFile);
+        const ok = await nodeID3.update(tagsToWrite, targetFile);
         if (!ok) throw new Error('node-id3 update fallita');
         const tag = await nodeID3.read(targetFile);
-        results.push({ file: relPath, ok: true, writtenGenre: tag.genre });
+        results.push({
+          file: relPath,
+          ok: true,
+          written: {
+            genre: tag.genre ?? null,
+            title: tag.title ?? null,
+            artist: tag.artist ?? null,
+            album: tag.album ?? null,
+          },
+        });
       } else if (ext === '.flac') {
-        // FLAC genre writing not yet supported
-        results.push({ file: relPath, ok: false, error: 'Scrittura genere FLAC non ancora supportata' });
+        // FLAC tag writing not yet supported in this endpoint
+        results.push({ file: relPath, ok: false, error: 'Scrittura tag FLAC non ancora supportata' });
       } else {
         results.push({ file: relPath, ok: false, error: 'Formato non supportato' });
       }
