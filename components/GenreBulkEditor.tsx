@@ -13,9 +13,10 @@ export type BulkTagPayload = {
 interface GenreBulkEditorProps {
   selectedCount: number;
   onApply: (payload: BulkTagPayload) => void;
+  onUploadCover?: (file: File) => Promise<void>;
 }
 
-export default function GenreBulkEditor({ selectedCount, onApply }: GenreBulkEditorProps) {
+export default function GenreBulkEditor({ selectedCount, onApply, onUploadCover }: GenreBulkEditorProps) {
   const [genreInput, setGenreInput] = useState("");
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
@@ -135,9 +136,32 @@ export default function GenreBulkEditor({ selectedCount, onApply }: GenreBulkEdi
           style={{ width: "100%", marginBottom: 8, padding: 6 }}
         />
       {error && <div style={{ color: "red", marginBottom: 8 }}>{error}</div>}
-      <button onClick={handleApply} disabled={selectedCount === 0}>
-        Applica metadati a tutti
-      </button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+        <button onClick={handleApply} disabled={selectedCount === 0}>
+          Applica metadati a tutti
+        </button>
+        <div>
+          <label style={{ display: 'block', marginBottom: 4 }}>Carica copertina per i selezionati:</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const input = e.currentTarget as HTMLInputElement;
+              const f = input.files?.[0] || null;
+              if (!f) return;
+              if (!onUploadCover) return alert('Upload cover non disponibile');
+              try {
+                await onUploadCover(f);
+                alert('Copertina applicata ai file selezionati');
+              } catch (err: any) {
+                alert('Errore upload copertina: ' + String(err));
+              } finally {
+                input.value = '';
+              }
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

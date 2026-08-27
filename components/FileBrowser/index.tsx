@@ -163,6 +163,29 @@ function FileBrowser() {
                 alert("Errore di rete: " + String(e));
               }
             }}
+            onUploadCover={async (file: File) => {
+              const items = Array.from(selection).map(sel => ({ path: sel.path, type: sel.type }));
+              // expand directories into files by asking the backend? here we only handle files
+              const filePaths = items.filter(it => it.type === 'file').map(it => it.path);
+              if (filePaths.length === 0) return alert('Nessun file selezionato per l\'upload');
+              // upload cover for each file in parallel (limited concurrency could be added)
+              const formFor = (p: string) => {
+                const fd = new FormData();
+                fd.append('path', p);
+                fd.append('image', file);
+                return fd;
+              };
+              const promises = filePaths.map(p => fetch('/api/mp3/cover', { method: 'POST', body: formFor(p) }).then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})), path: p })));
+              const results = await Promise.all(promises);
+              const failed = results.filter(r => !r.ok);
+              if (failed.length === 0) {
+                alert(`Copertina applicata a ${results.length} file.`);
+                setRefreshKey(k => k + 1);
+              } else {
+                alert('Alcuni upload falliti:\n' + failed.map(f => f.path + ': ' + (f.data?.error || 'error')).join('\n'));
+                setRefreshKey(k => k + 1);
+              }
+            }}
           />
           {/* Pulsante conversione FLAC->MP3 */}
           <ConvertFlacToMp3Button selection={selection} onRefresh={handleRefresh} />
