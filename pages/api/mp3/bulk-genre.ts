@@ -112,7 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const tag = await nodeID3.read(targetFile);
         // Normalize track to { no, of } like music-metadata's `common.track`
         let trackOut = null;
-        const rawTrack = tag.trackNumber ?? tag.track ?? null;
+        const rawTrack = (tag as any).trackNumber ?? (tag as any).track ?? null;
         if (rawTrack != null) {
           const parsed = parseInt(String(rawTrack).split('/')[0], 10);
           trackOut = { no: Number.isNaN(parsed) ? null : parsed, of: null };
@@ -127,7 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             album: tag.album ?? null,
             year: tag.year ?? null,
             track: trackOut,
-            albumArtist: tag.albumArtist ?? tag.performerInfo ?? null,
+            albumArtist: (tag as any).albumArtist ?? (tag as any).performerInfo ?? null,
           },
         });
       } else if (ext === '.flac') {

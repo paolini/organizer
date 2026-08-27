@@ -34,17 +34,24 @@ export async function GET(req: Request) {
         // Prendi campi comuni e immagini (se presenti)
         const common = metadata.common || {};
         const format = metadata.format || {};
-        const pictures = (common.picture || []).map((p) => ({
-          mime: p.format,
-          description: p.description || null,
-          size: p.data ? p.data.length : 0,
-        }));
+        const pictures = (common.picture || []).map((p) => {
+          const dataBuffer = p.data ? Buffer.from(p.data) : null;
+          return {
+            mime: p.format,
+            description: p.description || null,
+            size: dataBuffer ? dataBuffer.length : 0,
+            data: dataBuffer ? dataBuffer.toString('base64') : null,
+          };
+        });
+        // no debug logs
+        // normalize albumArtist field (some parsers use 'albumartist' lowercase)
+        const albumArtist = (common as any).albumartist || (common as any).albumArtist || null;
         tags = {
           common: {
             title: common.title || null,
             artist: common.artist || null,
             album: common.album || null,
-            albumArtist: common.albumartist || common.albumArtist || null,
+            albumArtist,
             year: common.year || null,
             track: common.track || null,
             genre: common.genre || null,
