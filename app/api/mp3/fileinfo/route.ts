@@ -44,6 +44,7 @@ export async function GET(req: Request) {
             title: common.title || null,
             artist: common.artist || null,
             album: common.album || null,
+            albumArtist: common.albumartist || common.albumArtist || null,
             year: common.year || null,
             track: common.track || null,
             genre: common.genre || null,

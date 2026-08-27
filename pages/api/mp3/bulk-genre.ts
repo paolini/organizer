@@ -10,6 +10,9 @@ type BulkUpdateBody = {
   title?: string;
   artist?: string;
   album?: string;
+  year?: string;
+  track?: number | string;
+  albumArtist?: string;
 };
 
 const AUDIO_EXTS = ['.mp3', '.flac'];
@@ -64,9 +67,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (typeof body.title === 'string' && body.title.trim()) tagsToWrite.title = body.title.trim();
   if (typeof body.artist === 'string' && body.artist.trim()) tagsToWrite.artist = body.artist.trim();
   if (typeof body.album === 'string' && body.album.trim()) tagsToWrite.album = body.album.trim();
+  if (typeof body.year === 'string' && body.year.trim()) tagsToWrite.year = body.year.trim();
+  if (typeof body.albumArtist === 'string' && body.albumArtist.trim()) tagsToWrite.albumArtist = body.albumArtist.trim();
+  // node-id3 sometimes expects performerInfo for the album artist (TPE2 frame)
+  if (typeof body.albumArtist === 'string' && body.albumArtist.trim()) tagsToWrite.performerInfo = body.albumArtist.trim();
+  if ((typeof body.track === 'number' && !Number.isNaN(body.track)) || (typeof body.track === 'string' && body.track.trim())) {
+    tagsToWrite.trackNumber = String(body.track).trim();
+  }
 
   if (Object.keys(tagsToWrite).length === 0) {
-    return res.status(400).json({ error: 'Inserisci almeno un campo da aggiornare (genre, title, artist, album)' });
+    return res.status(400).json({ error: 'Inserisci almeno un campo da aggiornare (genre, title, artist, album, year, track, albumArtist)' });
   }
 
   // Resolve items to actual audio file paths
@@ -100,6 +110,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const ok = await nodeID3.update(tagsToWrite, targetFile);
         if (!ok) throw new Error('node-id3 update fallita');
         const tag = await nodeID3.read(targetFile);
+        // Normalize track to { no, of } like music-metadata's `common.track`
+        let trackOut = null;
+        const rawTrack = tag.trackNumber ?? tag.track ?? null;
+        if (rawTrack != null) {
+          const parsed = parseInt(String(rawTrack).split('/')[0], 10);
+          trackOut = { no: Number.isNaN(parsed) ? null : parsed, of: null };
+        }
         results.push({
           file: relPath,
           ok: true,
@@ -108,6 +125,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             title: tag.title ?? null,
             artist: tag.artist ?? null,
             album: tag.album ?? null,
+            year: tag.year ?? null,
+            track: trackOut,
+            albumArtist: tag.albumArtist ?? tag.performerInfo ?? null,
           },
         });
       } else if (ext === '.flac') {

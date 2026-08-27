@@ -5,6 +5,9 @@ export type BulkTagPayload = {
   title?: string;
   artist?: string;
   album?: string;
+  year?: string;
+  track?: number;
+  albumArtist?: string;
 };
 
 interface GenreBulkEditorProps {
@@ -17,6 +20,9 @@ export default function GenreBulkEditor({ selectedCount, onApply }: GenreBulkEdi
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [album, setAlbum] = useState("");
+  const [year, setYear] = useState("");
+  const [albumArtist, setAlbumArtist] = useState("");
+  const [track, setTrack] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function handleApply() {
@@ -31,10 +37,13 @@ export default function GenreBulkEditor({ selectedCount, onApply }: GenreBulkEdi
       title: title.trim() || undefined,
       artist: artist.trim() || undefined,
       album: album.trim() || undefined,
+      year: year.trim() || undefined,
+      track: track.trim() ? Number(track.trim()) : undefined,
+      albumArtist: albumArtist.trim() || undefined,
     };
 
-    if (!payload.genre && !payload.title && !payload.artist && !payload.album) {
-      setError("Inserisci almeno un campo: genere, titolo, artista o album.");
+    if (!payload.genre && !payload.title && !payload.artist && !payload.album && !payload.year && !payload.track && !payload.albumArtist) {
+      setError("Inserisci almeno un campo: genere, titolo, artista, album, anno, traccia o artista dell'album.");
       return;
     }
 
@@ -80,6 +89,17 @@ export default function GenreBulkEditor({ selectedCount, onApply }: GenreBulkEdi
         placeholder="Es: Franco Battiato"
         style={{ width: "100%", marginBottom: 8, padding: 6 }}
       />
+      <label htmlFor="album-artist-input" style={{ display: "block", marginBottom: 4 }}>
+        Artista dell'album:
+      </label>
+      <input
+        id="album-artist-input"
+        type="text"
+        value={albumArtist}
+        onChange={e => setAlbumArtist(e.target.value)}
+        placeholder="Es: Various Artists"
+        style={{ width: "100%", marginBottom: 8, padding: 6 }}
+      />
       <label htmlFor="album-input" style={{ display: "block", marginBottom: 4 }}>
         Album:
       </label>
@@ -91,6 +111,29 @@ export default function GenreBulkEditor({ selectedCount, onApply }: GenreBulkEdi
         placeholder="Es: La Voce Del Padrone"
         style={{ width: "100%", marginBottom: 8, padding: 6 }}
       />
+        <label htmlFor="year-input" style={{ display: "block", marginBottom: 4 }}>
+          Anno:
+        </label>
+        <input
+          id="year-input"
+          type="text"
+          value={year}
+          onChange={e => setYear(e.target.value)}
+          placeholder="Es: 1981"
+          style={{ width: "100%", marginBottom: 8, padding: 6 }}
+        />
+        <label htmlFor="track-input" style={{ display: "block", marginBottom: 4 }}>
+          Traccia (numero):
+        </label>
+        <input
+          id="track-input"
+          type="number"
+          min={1}
+          value={track}
+          onChange={e => setTrack(e.target.value)}
+          placeholder="Es: 2"
+          style={{ width: "100%", marginBottom: 8, padding: 6 }}
+        />
       {error && <div style={{ color: "red", marginBottom: 8 }}>{error}</div>}
       <button onClick={handleApply} disabled={selectedCount === 0}>
         Applica metadati a tutti
