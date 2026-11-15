@@ -48,8 +48,31 @@ export function fileInfo(path: string): Promise<FileInfoData> {
   return request(`/api/mp3/fileinfo?path=${encodeURIComponent(path)}`);
 }
 
-export function downloadUrl(path: string) {
-  return `/api/mp3/download?path=${encodeURIComponent(path)}`;
+/** URL del file: da scaricare, oppure (inline) da mostrare/suonare nel browser */
+export function downloadUrl(path: string, inline = false) {
+  return `/api/mp3/download?path=${encodeURIComponent(path)}${inline ? "&inline=1" : ""}`;
+}
+
+export type TextPreview = { text: string; truncated: boolean };
+
+/** Legge al massimo maxBytes di un file di testo. Prova UTF-8, altrimenti Windows-1252
+ *  (comune per .nfo e .cue). */
+export async function readTextPreview(path: string, maxBytes = 256 * 1024): Promise<TextPreview> {
+  const res = await fetch(downloadUrl(path, true), { headers: { Range: `bytes=0-${maxBytes - 1}` } });
+  if (!res.ok && res.status !== 416) throw new Error(`Errore ${res.status}`);
+  if (res.status === 416) return { text: "", truncated: false }; // file vuoto
+  const buf = await res.arrayBuffer();
+  const total = Number(res.headers.get("Content-Range")?.split("/")[1] ?? buf.byteLength);
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    // può fallire anche solo perché il taglio è caduto a metà di un carattere UTF-8
+    text = total > buf.byteLength
+      ? new TextDecoder("utf-8").decode(buf)
+      : new TextDecoder("windows-1252").decode(buf);
+  }
+  return { text, truncated: total > buf.byteLength };
 }
 
 export async function moveItems(items: Item[], destDir: string) {

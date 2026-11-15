@@ -5,14 +5,12 @@ type Props = {
   currentDir: string;
   onNavigate: (path: string) => void;
   selectedCount: number;
-  flacCount: number;
   busy: boolean;
   onUpload: (files: FileList) => void;
   onMkdir: () => void;
   onMove: () => void;
   onRename: () => void;
   onDelete: () => void;
-  onConvert: () => void;
   onRefresh: () => void;
 };
 
@@ -57,11 +55,6 @@ export function Toolbar(p: Props) {
         <button className="btn btn-danger-outline" onClick={p.onDelete} disabled={p.busy || p.selectedCount === 0} title="Elimina (Canc)">
           🗑 Elimina
         </button>
-        {p.flacCount > 0 && (
-          <button className="btn" onClick={p.onConvert} disabled={p.busy}>
-            ⟳ Converti {p.flacCount} FLAC in MP3
-          </button>
-        )}
         <span className="spacer" />
         <button className="btn btn-ghost" onClick={p.onRefresh} disabled={p.busy} title="Ricarica">↻</button>
       </div>

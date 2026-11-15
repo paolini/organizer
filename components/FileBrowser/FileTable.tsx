@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Entry } from "./types";
 import { DRAG_MIME, type DragItem } from "./dnd";
+import { kindOf, extOf, KIND_ICONS } from "../../lib/fileTypes";
 
 type Props = {
   entries: Entry[] | null;
@@ -15,12 +16,10 @@ type Props = {
   onRenameSubmit: (path: string, newName: string) => void;
   onRenameCancel: () => void;
   onDelete: () => void;
+  /** Riproduce un file audio (doppio click o Invio) */
+  onPlay: (entry: Entry) => void;
+  playingPath: string | null;
 };
-
-function extOf(name: string) {
-  const i = name.lastIndexOf(".");
-  return i > 0 ? name.slice(i + 1).toLowerCase() : "";
-}
 
 export function FileTable(props: Props) {
   const { entries, selection, onSelectionChange, onOpenFolder, onDropItems, renaming } = props;
@@ -83,6 +82,7 @@ export function FileTable(props: Props) {
     } else if (e.key === "Enter" && anchor.current != null) {
       const entry = entries![anchor.current];
       if (entry?.type === "directory") onOpenFolder(entry.path);
+      else if (entry && kindOf(entry.name) === "audio") props.onPlay(entry);
     }
   }
 
@@ -120,13 +120,18 @@ export function FileTable(props: Props) {
           {entries.map((entry, i) => {
             const selected = selection.has(entry.path);
             const isDir = entry.type === "directory";
+            const kind = isDir ? null : kindOf(entry.name);
+            const playing = props.playingPath === entry.path;
             return (
               <tr
                 key={entry.path}
                 id={rowId(entry.path)}
-                className={`${selected ? "selected" : ""}${dropTarget === entry.path ? " drop-target" : ""}`}
+                className={`${selected ? "selected" : ""}${dropTarget === entry.path ? " drop-target" : ""}${playing ? " playing" : ""}`}
                 onClick={e => clickRow(e, i)}
-                onDoubleClick={() => isDir && onOpenFolder(entry.path)}
+                onDoubleClick={() => {
+                  if (isDir) onOpenFolder(entry.path);
+                  else if (kind === "audio") props.onPlay(entry);
+                }}
                 draggable={renaming !== entry.path}
                 onDragStart={e => dragStart(e, entry)}
                 onDragOver={isDir ? e => {
@@ -146,7 +151,9 @@ export function FileTable(props: Props) {
                   <input type="checkbox" checked={selected} readOnly tabIndex={-1} aria-label={`Seleziona ${entry.name}`} />
                 </td>
                 <td className="col-name">
-                  <span className="row-icon">{isDir ? "📁" : "🎵"}</span>
+                  <span className="row-icon" title={playing ? "In riproduzione" : undefined}>
+                    {isDir ? "📁" : playing ? "🔊" : KIND_ICONS[kind!]}
+                  </span>
                   {renaming === entry.path ? (
                     <RenameInput
                       name={entry.name}

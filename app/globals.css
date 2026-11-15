@@ -107,7 +107,35 @@ a { color: var(--accent); }
   height: 100%;
   min-height: 0;
 }
+.fb-root:has(> .player) { grid-template-rows: minmax(0, 1fr) auto; }
 .fb-tabs { display: none; }
+
+/* ---------- Player ---------- */
+.player {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 12px; border-top: 1px solid var(--border); background: var(--bg-subtle);
+}
+.player-controls { display: flex; gap: 2px; }
+.player-controls .icon-btn { font-size: 18px; padding: 4px 6px; }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.player-info { min-width: 0; flex: 0 1 280px; }
+.player-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player audio { flex: 1; min-width: 0; height: 36px; }
+.file-table tbody tr.playing .col-name { font-weight: 600; }
+
+/* ---------- Anteprime ---------- */
+.image-preview {
+  display: block; margin: 0 auto; max-width: 100%; max-height: 320px; border-radius: 6px; border: 1px solid var(--border);
+  /* scacchiera per le immagini trasparenti */
+  background: repeating-conic-gradient(var(--bg-hover) 0% 25%, var(--bg) 0% 50%) 50% / 16px 16px;
+}
+.text-preview {
+  margin: 12px 0 0; padding: 10px 12px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px;
+  font: 12px/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 60vh; overflow: auto;
+}
 
 .pane { min-height: 0; overflow: auto; }
 .pane-tree { border-right: 1px solid var(--border); background: var(--bg-subtle); padding: 6px 0; }
@@ -281,6 +309,10 @@ a { color: var(--accent); }
 /* ---------- Mobile: un pannello alla volta, a schede ---------- */
 @media (max-width: 760px) {
   .fb-root { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .fb-root:has(> .player) { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .player { flex-wrap: wrap; gap: 4px 8px; }
+  .player-info { flex: 1 1 0; }
+  .player audio { flex-basis: 100%; order: 3; }
   .fb-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-subtle); }
   .fb-tabs button { flex: 1; padding: 10px; border: 0; background: none; color: var(--muted); font: inherit; border-bottom: 2px solid transparent; }
   .fb-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }

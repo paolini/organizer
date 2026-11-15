@@ -8,6 +8,8 @@ import { FileTable } from "./FileTable";
 import { Toolbar } from "./Toolbar";
 import { DetailsPanel, type Run } from "./DetailsPanel";
 import { MoveDialog } from "./MoveDialog";
+import { Player } from "./Player";
+import { kindOf } from "../../lib/fileTypes";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { ToastProvider, useToast } from "../Toast";
 import { movableTo, type DragItem } from "./dnd";
@@ -37,6 +39,7 @@ function Browser() {
   const [tab, setTab] = useState<Tab>("files");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Entry[] | null>(null);
+  const [player, setPlayer] = useState<{ queue: Entry[]; index: number } | null>(null);
   const fileTreeRef = useRef(fileTree);
   fileTreeRef.current = fileTree;
   const currentDirRef = useRef(currentDir);
@@ -154,6 +157,16 @@ function Browser() {
     if (done) setSelection(new Set());
   }
 
+  /** Avvia la riproduzione: la coda è l'elenco dei brani della cartella corrente */
+  function play(entry: Entry) {
+    const queue = (entries ?? []).filter(e => e.type === "file" && kindOf(e.name) === "audio");
+    const index = queue.findIndex(e => e.path === entry.path);
+    if (index >= 0) setPlayer({ queue, index });
+  }
+  const playingPath = player ? player.queue[player.index].path : null;
+  const setPlayerIndex = useCallback((index: number) => setPlayer(p => p && { ...p, index }), []);
+  const closePlayer = useCallback(() => setPlayer(null), []);
+
   async function mkdir() {
     const name = window.prompt("Nome della nuova cartella:")?.trim();
     if (!name) return;
@@ -170,7 +183,6 @@ function Browser() {
     }, `${n} file caricati.`);
   }
 
-  const flacPaths = selected.filter(e => e.type === "file" && e.name.toLowerCase().endsWith(".flac")).map(e => e.path);
   const [fileDragOver, setFileDragOver] = useState(false);
 
   if (loadError && !fileTree[""]?.length) {
@@ -222,14 +234,12 @@ function Browser() {
           currentDir={currentDir}
           onNavigate={navigate}
           selectedCount={selected.length}
-          flacCount={flacPaths.length}
           busy={busy}
           onUpload={upload}
           onMkdir={mkdir}
           onMove={() => setMoving(selected.map(e => ({ path: e.path, type: e.type })))}
           onRename={() => selected.length === 1 && setRenaming(selected[0].path)}
           onDelete={() => selected.length > 0 && setDeleting(selected)}
-          onConvert={() => run(() => api.convertToMp3(flacPaths), `${flacPaths.length} file convertiti in MP3.`)}
           onRefresh={reloadAll}
         />
         <FileTable
@@ -243,6 +253,8 @@ function Browser() {
           onRenameSubmit={rename}
           onRenameCancel={() => setRenaming(null)}
           onDelete={() => selected.length > 0 && setDeleting(selected)}
+          onPlay={play}
+          playingPath={playingPath}
         />
         <div className="statusbar">
           {entries ? `${entries.length} elementi` : ""}
@@ -260,8 +272,14 @@ function Browser() {
           refreshKey={refreshKey}
           run={run}
           onOpenFolder={navigate}
+          onPlay={play}
+          playingPath={playingPath}
         />
       </aside>
+
+      {player && (
+        <Player queue={player.queue} index={player.index} onIndexChange={setPlayerIndex} onClose={closePlayer} />
+      )}
 
       {deleting && (
         <ConfirmDialog
