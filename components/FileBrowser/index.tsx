@@ -8,8 +8,8 @@ import { FileTable } from "./FileTable";
 import { Toolbar } from "./Toolbar";
 import { DetailsPanel, type Run } from "./DetailsPanel";
 import { MoveDialog } from "./MoveDialog";
-import { ConfirmDialog } from "./ConfirmDialog";
-import { ToastProvider, useToast } from "./Toast";
+import { ConfirmDialog } from "../ConfirmDialog";
+import { ToastProvider, useToast } from "../Toast";
 import { movableTo, type DragItem } from "./dnd";
 
 type Tab = "tree" | "files" | "details";

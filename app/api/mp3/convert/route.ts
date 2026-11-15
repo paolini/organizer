@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
-import path from "path";
+import { authorize } from "../../_lib/auth";
+import { resolveInRoot } from "../../_lib/paths";
 
 // Per conversione
 let ffmpeg: any;
@@ -10,9 +11,11 @@ try {
   // fallback: non installato
 }
 
-const AUDIO_ROOT = process.env.TARGET_DIR || path.resolve(process.cwd(), "public/audio");
-
 export async function POST(req: NextRequest) {
+  const user = await authorize(req, "write");
+  if (user instanceof NextResponse) return user;
+  const rootDir = process.env.TARGET_DIR || "";
+  if (!rootDir) return NextResponse.json({ error: "Variabile TARGET_DIR non impostata" }, { status: 500 });
   if (!ffmpeg) {
     return NextResponse.json({ error: "fluent-ffmpeg non installato sul server." }, { status: 500 });
   }
@@ -27,8 +30,9 @@ export async function POST(req: NextRequest) {
 
   const results = await Promise.all(files.map(async (relPath) => {
     try {
-      if (!relPath.toLowerCase().endsWith(".flac")) throw new Error("Non è un file FLAC");
-      const absPath = path.join(AUDIO_ROOT, relPath);
+      if (typeof relPath !== "string" || !relPath.toLowerCase().endsWith(".flac")) throw new Error("Non è un file FLAC");
+      const absPath = resolveInRoot(rootDir, relPath, false);
+      if (!absPath) throw new Error("Accesso non consentito");
       const mp3Path = absPath.replace(/\.flac$/i, ".mp3");
       // Verifica esistenza
       await fs.access(absPath);

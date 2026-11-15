@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 
+type Me = { id: number; username: string; permissions: string[] };
+
 export default function Header({ version }: { version: string }) {
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<Me | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -12,11 +15,7 @@ export default function Header({ version }: { version: string }) {
     let mounted = true;
     fetch('/api/auth/me', { credentials: 'include' })
       .then((r) => r.json())
-      .then((data) => {
-        if (!mounted) return;
-        if (data?.user?.username) setUser(data.user.username);
-        else setUser(null);
-      })
+      .then((data) => { if (mounted) setUser(data?.user ?? null); })
       .catch(() => { if (mounted) setUser(null); });
     return () => { mounted = false };
   }, [pathname]);
@@ -27,22 +26,29 @@ export default function Header({ version }: { version: string }) {
     router.push('/login');
   }
 
+  const isAdmin = user?.permissions.includes('admin');
+  const navClass = (href: string) => `nav-link${pathname === href ? ' active' : ''}`;
+
   return (
     <header className="app-header">
-      <div>
-        <b>Organizer</b> <span className="muted" style={{ fontSize: 12 }}>v{version}</span>
+      <div className="app-header-left">
+        <Link href="/" className="brand">Organizer</Link>
+        <span className="muted" style={{ fontSize: 12 }}>v{version}</span>
+        {user && (
+          <nav className="app-nav">
+            <Link href="/" className={navClass('/')}>Libreria</Link>
+            {isAdmin && <Link href="/users" className={navClass('/users')}>Utenti</Link>}
+          </nav>
+        )}
       </div>
       <div className="app-header-user">
         {user ? (
           <>
-            <span>{user}</span>
-            <button className="btn btn-ghost" onClick={logout}>Logout</button>
+            <Link href="/account" className={navClass('/account')} title="Il mio account">👤 {user.username}</Link>
+            <button className="btn btn-ghost" onClick={logout}>Esci</button>
           </>
         ) : (
-          <>
-            <a href="/login">Login</a>
-            <a href="/signup">Signup</a>
-          </>
+          pathname !== '/login' && <Link href="/login" className="nav-link">Accedi</Link>
         )}
       </div>
     </header>

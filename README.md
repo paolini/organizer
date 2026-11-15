@@ -35,59 +35,51 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
-## Authentication (local, no DB)
+## Authentication and users
 
-This project includes a minimal, file-backed authentication system used to protect the ORGANIZER APIs. It is intended for local development and prototypes only.
+Users live in `data/users.json` (a JSON array; passwords are bcrypt hashes). Sessions are JWTs signed with `AUTH_SECRET`, stored in an HTTP-only cookie named `token` and valid for 7 days.
 
-- Where users are stored: `data/users.json` (array of user objects `{ id, username, password }`). Passwords are hashed with `bcryptjs`.
-- JWT: signed with `AUTH_SECRET` environment variable (defaults to a development secret if unset). The API sets an HTTP-only cookie named `token` on successful login.
+### Permissions
 
-Authentication summary (admin/config):
+| Permission | Allows |
+|---|---|
+| `read`  | browse files and tags, download |
+| `write` | edit tags and covers, upload, move, rename, delete, convert |
+| `admin` | manage users (the **Utenti** page) |
 
-- Users are stored in `data/users.json` (local JSON file). Passwords are hashed with `bcryptjs`.
-- Authentication uses JWTs signed with the `AUTH_SECRET` environment variable and delivered as an HTTP-only cookie named `token`.
+### Managing users
 
+- **First user**: on an installation with no users, `/signup` creates the first account with all permissions (`read`, `write`, `admin`).
+- **Afterwards**, admins manage everything from the **Utenti** page (`/users`): create users, toggle permissions, reset passwords, delete users. An admin cannot remove their own `admin` permission or delete themselves, so at least one admin always remains.
+- **Every user** can change their own password from the account page (`/account`).
+- Changing or resetting a password logs out every other session of that user. Deleting a user ends their sessions immediately.
+- Passwords must be at least 8 characters.
 
-Environment variables (development):
+### Environment variables
 
-- `TARGET_DIR` — path to the root folder containing your audio files. Example: `/home/you/mp3`.
-- `AUTH_SECRET` — secret used to sign JWTs. Replace the default for any non-dev usage.
+- `TARGET_DIR` — root folder of the music library. Example: `/home/you/mp3`.
+- `AUTH_SECRET` — secret used to sign session tokens. **Always set it in production.**
+- `ALLOW_SIGNUP` — set to `true` to let anyone register from `/signup`. New accounts get no permissions until an admin enables them. Default: registration closed (except for the very first user).
 
-Quick start (local auth + files):
+### Security notes
+
+- After 10 failed logins from the same IP within 15 minutes, further attempts from that IP are refused for the rest of the window. The client IP is read from `X-Forwarded-For`, so the app must run behind a reverse proxy that sets that header (such as Traefik).
+- `data/users.json` contains password hashes: never commit it (it is in `.gitignore`).
+
+### Recovering access manually
+
+If no admin can log in, edit `data/users.json` directly: add `"admin"` to a user's `permissions`, or replace their `password` with a new bcrypt hash, for example:
+
+```bash
+node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 10))" 'new-password'
+```
+
+Changes to the file take effect immediately, without restarting.
+
+## Local development
 
 ```bash
 export TARGET_DIR=/path/to/your/mp3s
 export AUTH_SECRET='replace_with_secure_secret'
-rm -rf .next
 npm run dev
 ```
-
-Create users via the signup API (recommended):
-
-The preferred and supported way to create users for this app is to call the signup endpoint. This ensures the password is hashed using `bcrypt` in the correct format the server expects.
-
-Example (generate bcrypt hash with `htpasswd`):
-
-```bash
-# install on Debian/Ubuntu: sudo apt install apache2-utils
-# generate bcrypt hash for user 'alice' (cost 10) and print only the hash
-htpasswd -bnBC 10 alice 's3cret' | cut -d: -f2
-```
-
-Paste the resulting `$2b$...` hash into `data/users.json` under the user's `password` field, or use the signup endpoint instead to create users programmatically.
-
-If you prefer to add users manually to `data/users.json`, make sure the password is a bcrypt hash (starts with `$2b$` or `$2a$`). Other hash formats (for example OpenSSL's `$6$` SHA-512 crypt) will NOT work with the current authentication code.
-
-Permissions
-
-- Users include a `permissions` array in `data/users.json`, for example: `"permissions": ["read"]` or `"permissions": ["read","write"]`.
-- New users created via the `signup` endpoint get an empty `permissions` array by default and therefore cannot access protected ORGANIZER APIs until an admin grants them permissions.
-- To grant permissions manually, edit `data/users.json` and add the desired permissions to the user object, or implement an admin UI later.
-
-If you need to generate a bcrypt hash locally, use one of the alternatives below (htpasswd / Python / Node) and paste the resulting `$2b$...` hash into `data/users.json`.
-
-Notes & security:
-
-- This setup is NOT suitable for production — passwords and user data are stored in a local JSON file and there is no rate-limiting, CSRF protection, or hardened cookie policy configured for cross-site contexts.
-- For production, migrate `data/users.json` to a proper database, use HTTPS, rotate `AUTH_SECRET`, implement refresh tokens or shorter expirations, and harden cookie settings (`SameSite`, `Secure`, CSRF tokens).
-
