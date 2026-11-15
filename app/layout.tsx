@@ -1,12 +1,13 @@
 import Header from '../components/Header'
 import packageJson from '../package.json'
+import './globals.css'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="it">
-      <body style={{ margin: 0, fontFamily: 'sans-serif' }}>
+      <body>
         <Header version={packageJson.version} />
-        {children}
+        <div className="app-main">{children}</div>
       </body>
     </html>
   );

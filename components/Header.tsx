@@ -28,19 +28,19 @@ export default function Header({ version }: { version: string }) {
   }
 
   return (
-    <header style={{ display: 'flex', justifyContent: 'space-between', padding: 12, borderBottom: '1px solid #ddd' }}>
+    <header className="app-header">
       <div>
-        Organizer <span style={{ color: '#666', fontSize: 12 }}>v{version}</span>
+        <b>Organizer</b> <span className="muted" style={{ fontSize: 12 }}>v{version}</span>
       </div>
-      <div>
+      <div className="app-header-user">
         {user ? (
           <>
-            <span style={{ marginRight: 12 }}>Hello, {user}</span>
-            <button onClick={logout}>Logout</button>
+            <span>{user}</span>
+            <button className="btn btn-ghost" onClick={logout}>Logout</button>
           </>
         ) : (
           <>
-            <a href="/login" style={{ marginRight: 8 }}>Login</a>
+            <a href="/login">Login</a>
             <a href="/signup">Signup</a>
           </>
         )}

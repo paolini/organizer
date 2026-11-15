@@ -1,244 +1,234 @@
 "use client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Entry, FileTree } from "./types";
+import { ancestorsOf, joinPath } from "./types";
+import * as api from "./api";
 import { FolderTree } from "./FolderTree";
-import type { NodeSelection, SelectionSet, Node } from "./types";
-import { getAllFiles } from "./treeUtils";
-import { FileListItem } from "./FileListItem";
-import GenreBulkEditor, { type BulkTagPayload } from "../GenreBulkEditor";
-import React, { useState, useEffect, useCallback } from "react";
-function FileBrowser() {
-  // Tutti gli hook DEVONO essere chiamati sempre, subito all'inizio
-  const [fileTree, setFileTree] = useState<Record<string, Node[] | null>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selection, setSelection] = useState<SelectionSet>(new Set());
-  const [currentDir, setCurrentDir] = useState<string>("");
-  const [refreshKey, setRefreshKey] = useState(0);
+import { FileTable } from "./FileTable";
+import { Toolbar } from "./Toolbar";
+import { DetailsPanel, type Run } from "./DetailsPanel";
+import { MoveDialog } from "./MoveDialog";
+import { ToastProvider, useToast } from "./Toast";
+import { movableTo, type DragItem } from "./dnd";
 
-  // Carica i figli di una cartella e aggiorna fileTree
-  const fetchChildren = useCallback(async (path: string) => {
-    const res = await fetch(`/api/mp3?path=${encodeURIComponent(path)}`);
-    const data = await res.json();
-    setFileTree(prev => ({ ...prev, [path]: data.children ?? [] }));
-    return data.children ?? [];
-  }, []);
+type Tab = "tree" | "files" | "details";
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/mp3");
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data?.error || `API error ${res.status}`);
-          setFileTree(prev => ({ ...prev, "": [] }));
-        } else {
-          const rootChildren = data.children ?? [];
-          const treeInit: Record<string, Node[] | null> = { "": rootChildren };
-          for (const node of rootChildren) {
-            if (node.type === "directory") treeInit[node.name] = null;
-          }
-          setFileTree(prev => ({ ...prev, ...treeInit }));
-        }
-      } catch (err) {
-        setError(String(err));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+const collator = new Intl.Collator("it", { numeric: true, sensitivity: "base" });
 
-  // Aggiorna currentDir quando si naviga (solo root qui, FolderTree può essere esteso per sottocartelle)
-  useEffect(() => { setCurrentDir(""); }, []);
-
-  // Upload handler
-  async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const fileInput = form.elements.namedItem("file") as HTMLInputElement;
-    if (!fileInput?.files?.length) return alert("Seleziona un file da caricare");
-    const data = new FormData();
-    Array.from(fileInput.files).forEach((file) => {
-      data.append("file", file);
-      data.append("name", file.name);
-    });
-    try {
-      const res = await fetch(`/api/mp3/upload?dir=${encodeURIComponent(currentDir)}`, {
-
-        method: "POST",
-        body: data
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Upload fallito");
-      alert(`Upload completato! File caricati: ${result.uploaded ?? fileInput.files.length}`);
-      // Refresh fileTree
-      fetchChildren(currentDir);
-    } catch (err: any) {
-      alert("Errore upload: " + String(err));
-    }
-    fileInput.value = "";
-  }
-
-  const handleRefresh = useCallback(() => {
-    setRefreshKey(k => k + 1);
-    // Also refresh the current directory tree
-    fetchChildren(currentDir);
-  }, [fetchChildren, currentDir]);
-
-  const root = fileTree[""];
-
+export default function FileBrowser() {
   return (
-    <div>
-      <h2>File e cartelle disponibili</h2>
-      {error && (
-        <div style={{ color: 'red', marginBottom: 8 }}>
-          Errore: {error}. Se non sei autenticato esegui il login.
-        </div>
-      )}
-      {/* Upload globale rimosso: ora solo per-folder */}
-      {root && root.length > 0 ? (
-        <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-          {root.map((node) =>
-            node.type === "directory" ? (
-              <FolderTree
-                key={node.name}
-                path={node.name}
-                name={node.name}
-                selection={selection}
-                setSelection={setSelection}
-                fetchChildren={fetchChildren}
-                fileTree={fileTree}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
-              />
-            ) : (
-              <FileListItem
-                key={node.name}
-                path={node.name}
-                name={node.name}
-                refreshKey={refreshKey}
-                onRefresh={handleRefresh}
-                selected={Array.from(selection).some(sel => sel.path === node.name && sel.type === "file")}
-                onSelect={(checked) => {
-                  const newSel = new Set(selection);
-                  if (checked) newSel.add({ path: node.name, type: "file" });
-                  else Array.from(newSel).forEach(sel => {
-                    if (sel.path === node.name && sel.type === "file") newSel.delete(sel);
-                  });
-                  setSelection(newSel);
-                }}
-              />
-            )
-          )}
-        </ul>
-      ) : (
-        <div>Nessun file trovato.</div>
-      )}
-      {selection.size > 0 && (
-        <>
-          <GenreBulkEditor
-            selectedCount={selection.size}
-            onApply={async (payload: BulkTagPayload) => {
-              const items = Array.from(selection).map(sel => ({ path: sel.path, type: sel.type }));
-              try {
-                const res = await fetch("/api/mp3/bulk-genre", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ items, ...payload })
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                  console.error("Errore API bulk-genre:", data);
-                  alert("Errore: " + (data.error || "Impossibile aggiornare i metadati"));
-                } else {
-                  const failed = data.results.filter((r: any) => !r.ok);
-                  if (failed.length === 0) {
-                    alert("Metadati aggiornati su tutti i file selezionati.");
-                  setRefreshKey(k => k + 1);
-                  } else {
-                    console.error("Alcuni file non aggiornati:", failed);
-                    alert(`Alcuni file non aggiornati:\n` + failed.map((r: any) => r.file + ": " + r.error).join("\n"));
-                  }
-                }
-              } catch (e: any) {
-                console.error("Errore di rete bulk-genre:", e);
-                alert("Errore di rete: " + String(e));
-              }
-            }}
-            onUploadCover={async (file: File) => {
-              const items = Array.from(selection).map(sel => ({ path: sel.path, type: sel.type }));
-              // expand directories into files by asking the backend? here we only handle files
-              const filePaths = items.filter(it => it.type === 'file').map(it => it.path);
-              if (filePaths.length === 0) return alert('Nessun file selezionato per l\'upload');
-              // upload cover for each file in parallel (limited concurrency could be added)
-              const formFor = (p: string) => {
-                const fd = new FormData();
-                fd.append('path', p);
-                fd.append('image', file);
-                return fd;
-              };
-              const promises = filePaths.map(p => fetch('/api/mp3/cover', { method: 'POST', body: formFor(p) }).then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})), path: p })));
-              const results = await Promise.all(promises);
-              const failed = results.filter(r => !r.ok);
-              if (failed.length === 0) {
-                alert(`Copertina applicata a ${results.length} file.`);
-                setRefreshKey(k => k + 1);
-              } else {
-                alert('Alcuni upload falliti:\n' + failed.map(f => f.path + ': ' + (f.data?.error || 'error')).join('\n'));
-                setRefreshKey(k => k + 1);
-              }
-            }}
-          />
-          {/* Pulsante conversione FLAC->MP3 */}
-          <ConvertFlacToMp3Button selection={selection} onRefresh={handleRefresh} />
-        </>
-      )}
-      <div style={{marginTop:16}}>
-        <b>Selezionati:</b>
-        <pre>{JSON.stringify(Array.from(selection), null, 2)}</pre>
-      </div>
-    </div>
+    <ToastProvider>
+      <Browser />
+    </ToastProvider>
   );
 }
 
+function Browser() {
+  const notify = useToast();
+  const [fileTree, setFileTree] = useState<FileTree>({});
+  const [currentDir, setCurrentDir] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set([""]));
+  const [selection, setSelection] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [moving, setMoving] = useState<DragItem[] | null>(null);
+  const [tab, setTab] = useState<Tab>("files");
+  const fileTreeRef = useRef(fileTree);
+  fileTreeRef.current = fileTree;
 
-export default FileBrowser;
+  const loadDir = useCallback(async (path: string) => {
+    try {
+      const children = await api.listDir(path);
+      setFileTree(prev => ({ ...prev, [path]: children }));
+      if (path === "") setLoadError(null);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (path === "") setLoadError(msg);
+      else notify("error", `Impossibile leggere /${path}: ${msg}`);
+      setFileTree(prev => ({ ...prev, [path]: [] }));
+    }
+  }, [notify]);
 
-// Pulsante per la conversione multipla FLAC->MP3
-function ConvertFlacToMp3Button({ selection, onRefresh }: { selection: SelectionSet; onRefresh?: () => void }) {
-  const flacFiles = Array.from(selection).filter(sel => sel.path.toLowerCase().endsWith('.flac')).map(sel => sel.path);
-  const [loading, setLoading] = React.useState(false);
-  if (flacFiles.length === 0) return null;
+  /** Ricarica tutte le cartelle già caricate e forza il refresh del pannello dettagli */
+  const reloadAll = useCallback(async () => {
+    const loaded = Object.keys(fileTreeRef.current).filter(k => fileTreeRef.current[k] != null);
+    await Promise.all((loaded.length ? loaded : [""]).map(loadDir));
+    setRefreshKey(k => k + 1);
+  }, [loadDir]);
+
+  useEffect(() => { loadDir(""); }, [loadDir]);
+
+  const entries: Entry[] | null = useMemo(() => {
+    const nodes = fileTree[currentDir];
+    if (!nodes) return null;
+    return nodes
+      .map(n => ({ ...n, path: joinPath(currentDir, n.name) }))
+      .sort((a, b) => a.type !== b.type ? (a.type === "directory" ? -1 : 1) : collator.compare(a.name, b.name));
+  }, [fileTree, currentDir]);
+
+  // Tiene la selezione coerente con il contenuto della cartella (es. dopo uno spostamento)
+  const selected = useMemo(() => (entries ?? []).filter(e => selection.has(e.path)), [entries, selection]);
+
+  const navigate = useCallback((path: string) => {
+    setCurrentDir(path);
+    setSelection(new Set());
+    setExpanded(prev => {
+      const next = new Set(prev);
+      ancestorsOf(path).slice(0, -1).forEach(a => next.add(a));
+      return next;
+    });
+    if (fileTreeRef.current[path] == null) loadDir(path);
+    setTab("files");
+  }, [loadDir]);
+
+  const toggleExpanded = useCallback((path: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else {
+        next.add(path);
+        if (fileTreeRef.current[path] == null) loadDir(path);
+      }
+      return next;
+    });
+  }, [loadDir]);
+
+  const run: Run = useCallback(async (fn, successMsg) => {
+    setBusy(true);
+    try {
+      await fn();
+      notify("success", successMsg);
+      return true;
+    } catch (e) {
+      notify("error", (e as Error).message || String(e));
+      return false;
+    } finally {
+      setBusy(false);
+      await reloadAll();
+    }
+  }, [notify, reloadAll]);
+
+  async function moveItems(items: DragItem[], destDir: string) {
+    setMoving(null);
+    const ok = movableTo(items, destDir);
+    if (ok.length === 0) return;
+    const done = await run(() => api.moveItems(ok, destDir), `${ok.length} ${ok.length === 1 ? "elemento spostato" : "elementi spostati"} in /${destDir}`);
+    if (done) setSelection(new Set());
+  }
+
+  async function mkdir() {
+    const name = window.prompt("Nome della nuova cartella:")?.trim();
+    if (!name) return;
+    const done = await run(() => api.makeDir(currentDir, name), `Cartella “${name}” creata.`);
+    if (done) setExpanded(prev => new Set(prev).add(currentDir));
+  }
+
+  function upload(files: FileList | File[]) {
+    const n = Array.from(files).length;
+    notify("info", `Caricamento di ${n} file in corso…`);
+    run(async () => {
+      const uploaded = await api.uploadFiles(currentDir, files);
+      if (uploaded !== n) throw new Error(`Caricati ${uploaded} file su ${n}.`);
+    }, `${n} file caricati.`);
+  }
+
+  const flacPaths = selected.filter(e => e.type === "file" && e.name.toLowerCase().endsWith(".flac")).map(e => e.path);
+  const [fileDragOver, setFileDragOver] = useState(false);
+
+  if (loadError && !fileTree[""]?.length) {
+    return (
+      <div className="fb-error">
+        <p>Errore: {loadError}</p>
+        <p>Se non sei autenticato <a href="/login">esegui il login</a>.</p>
+      </div>
+    );
+  }
+
   return (
-    <button
-      style={{ marginTop: 12, background: '#2d8f2d', color: 'white', padding: '8px 18px', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
-      disabled={loading}
-      onClick={async () => {
-        setLoading(true);
-        try {
-          const res = await fetch('/api/mp3/convert', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ files: flacFiles })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            alert('Errore conversione: ' + (data.error || 'Impossibile convertire i file.'));
-          } else {
-            const failed = data.results?.filter((r: any) => !r.ok) || [];
-            if (failed.length === 0) {
-              alert('Conversione completata! Tutti i file FLAC selezionati sono stati convertiti in MP3.');
-              onRefresh?.();
-            } else {
-              alert('Alcuni file non sono stati convertiti:\n' + failed.map((r: any) => r.file + ': ' + r.error).join('\n'));
-            }
-          }
-        } catch (e: any) {
-          alert('Errore di rete: ' + String(e));
-        } finally {
-          setLoading(false);
-        }
-      }}
-    >
-      {loading ? 'Conversione in corso...' : `Converti ${flacFiles.length} FLAC in MP3`}
-    </button>
+    <div className="fb-root" data-tab={tab}>
+      <div className="fb-tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "tree"} onClick={() => setTab("tree")}>Cartelle</button>
+        <button role="tab" aria-selected={tab === "files"} onClick={() => setTab("files")}>File</button>
+        <button role="tab" aria-selected={tab === "details"} onClick={() => setTab("details")}>
+          Dettagli{selected.length ? ` (${selected.length})` : ""}
+        </button>
+      </div>
+
+      <aside className="pane pane-tree">
+        <FolderTree
+          fileTree={fileTree}
+          expanded={expanded}
+          onToggle={toggleExpanded}
+          current={currentDir}
+          onSelect={navigate}
+          onDropItems={moveItems}
+        />
+      </aside>
+
+      <section
+        className={`pane pane-files${fileDragOver ? " os-drop" : ""}`}
+        onDragOver={e => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          e.preventDefault();
+          setFileDragOver(true);
+        }}
+        onDragLeave={e => { if (e.currentTarget === e.target) setFileDragOver(false); }}
+        onDrop={e => {
+          if (!e.dataTransfer.files.length) return;
+          e.preventDefault();
+          setFileDragOver(false);
+          upload(e.dataTransfer.files);
+        }}
+      >
+        <Toolbar
+          currentDir={currentDir}
+          onNavigate={navigate}
+          selectedCount={selected.length}
+          flacCount={flacPaths.length}
+          busy={busy}
+          onUpload={upload}
+          onMkdir={mkdir}
+          onMove={() => setMoving(selected.map(e => ({ path: e.path, type: e.type })))}
+          onConvert={() => run(() => api.convertToMp3(flacPaths), `${flacPaths.length} file convertiti in MP3.`)}
+          onRefresh={reloadAll}
+        />
+        <FileTable
+          entries={entries}
+          selection={selection}
+          onSelectionChange={setSelection}
+          onOpenFolder={navigate}
+          onDropItems={moveItems}
+        />
+        <div className="statusbar">
+          {entries ? `${entries.length} elementi` : ""}
+          {selected.length > 0 && ` · ${selected.length} selezionati`}
+          {busy && " · operazione in corso…"}
+        </div>
+      </section>
+
+      <aside className="pane pane-details">
+        <DetailsPanel
+          currentDir={currentDir}
+          entries={entries}
+          selected={selected}
+          busy={busy}
+          refreshKey={refreshKey}
+          run={run}
+          onOpenFolder={navigate}
+        />
+      </aside>
+
+      {moving && (
+        <MoveDialog
+          fileTree={fileTree}
+          loadDir={loadDir}
+          initialDir={currentDir}
+          count={moving.length}
+          onConfirm={dest => moveItems(moving, dest)}
+          onCancel={() => setMoving(null)}
+        />
+      )}
+    </div>
   );
 }
