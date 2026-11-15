@@ -20,12 +20,15 @@ app/
   api/
     _lib/auth.ts           utenti, sessioni JWT, permessi, limite tentativi di login
     _lib/paths.ts          resolveInRoot() e isValidName(): validazione dei path (vedi Sicurezza)
+    _lib/trash.ts          cestino: sposta, elenca, ripristina, elimina, scadenza automatica
     auth/                  login, logout, me, signup, password
     users/, users/[id]/    CRUD utenti (solo admin)
     mp3/route.ts           elenco di una cartella (non ricorsivo)
     mp3/fileinfo           dimensione, estensione e tag (music-metadata) di un file
     mp3/download           download o visualizzazione inline (?inline=1), con supporto Range
-    mp3/upload, mkdir, move, rename, delete, convert (FLAC → MP3 con ffmpeg)
+    mp3/upload, mkdir, move, rename, convert (FLAC → MP3 con ffmpeg)
+    mp3/delete             sposta nel cestino (non cancella)
+    trash/, trash/restore, trash/purge   elenco, ripristino, eliminazione definitiva (purge solo admin)
 pages/api/mp3/
   bulk-genre.ts            scrittura tag su file e cartelle (node-id3); nome storico, scrive tutti i tag
   cover.ts                 copertina incorporata negli MP3 (formidable + ffmpeg)
@@ -43,6 +46,7 @@ components/
     TagEditor.tsx          form dei tag e upload copertina
     MoveDialog.tsx         scelta della cartella di destinazione
     Player.tsx             barra di riproduzione
+    TrashView.tsx          vista del cestino (sostituisce tabella e dettagli quando si apre il Cestino)
     api.ts                 tutte le chiamate HTTP del client
     dnd.ts                 formato del drag & drop interno e controllo delle destinazioni valide
     types.ts               tipi e utility sui path (joinPath, parentOf, ancestorsOf)
@@ -67,6 +71,14 @@ lib/fileTypes.ts           tipo di file per estensione (audio/immagine/testo/alt
 
 **Stabilità del layout:** la toolbar deve avere sempre la stessa altezza. Un pulsante che compare in base alla selezione può mandarla a capo, spostare la tabella e far finire il secondo click di un doppio click sulla riga sbagliata. Le azioni che dipendono dalla selezione (per esempio la conversione dei FLAC) vanno nel pannello dettagli.
 
+## Cestino
+
+- **Struttura:** `.trash/<id>/` nella radice della libreria contiene l'elemento eliminato (con il nome originale) e `.meta.json` (path originale, tipo, data, utente, dimensione). L'id è `<ms epoch>-<8 hex>`: la data serve per la scadenza, la regex sull'id impedisce il path traversal.
+- **Navidrome:** `.trash/.ndignore` (file vuoto) fa sì che Navidrome ignori la cartella.
+- **Ripristino:** l'elemento torna al path originale, ricreando le cartelle mancanti. Se il nome è occupato aggiunge " (2)", " (3)"…
+- **Scadenza:** dopo `TRASH_DAYS` giorni (default 30) gli elementi vengono eliminati, al primo elenco o alla prima eliminazione successiva.
+- **Interfaccia:** eliminare non chiede conferma, la notifica offre "Annulla". Si può anche trascinare sul Cestino nell'albero. La conferma resta per l'eliminazione definitiva.
+
 ## Autenticazione e permessi
 
 - **Permessi:** `read` (vedere, scaricare), `write` (tutte le modifiche ai file e ai tag), `admin` (gestione utenti).
@@ -80,7 +92,7 @@ lib/fileTypes.ts           tipo di file per estensione (audio/immagine/testo/alt
 ## Sicurezza: regole per le API sui file
 
 - **Permessi:** ogni route deve controllare il permesso giusto. Le letture richiedono `read`, tutto ciò che modifica richiede `write`.
-- **Path:** ogni path ricevuto dal client va risolto con `resolveInRoot(rootDir, rel)`, che restituisce `null` se esce da `TARGET_DIR`. Con il terzo argomento a `false` rifiuta anche la radice stessa: usarlo per rinominare, spostare, eliminare e convertire. Non usare `path.join(root, rel)` né il controllo con `startsWith(root)`, che considera valida `/music2` quando la radice è `/music`.
+- **Path:** ogni path ricevuto dal client va risolto con `resolveInRoot(rootDir, rel)`, che restituisce `null` se esce da `TARGET_DIR` o se punta dentro `.trash` (al cestino si accede solo da `_lib/trash.ts`). Con il terzo argomento a `false` rifiuta anche la radice stessa: usarlo per rinominare, spostare, eliminare e convertire. Non usare `path.join(root, rel)` né il controllo con `startsWith(root)`, che considera valida `/music2` quando la radice è `/music`.
 - **Nomi nuovi** (rinomina, nuova cartella): vanno validati con `isValidName`.
 - **Sovrascritture:** nessuna operazione deve sovrascrivere un file esistente senza dirlo. `fs.rename` sovrascrive in silenzio, quindi va controllata prima l'esistenza della destinazione.
 - **Contenuti serviti al browser:** `download` invia sempre `X-Content-Type-Options: nosniff` e `Content-Security-Policy: sandbox`. In linea vengono serviti solo i tipi elencati in `lib/fileTypes.ts`, e il testo sempre come `text/plain`. In questo modo un SVG o un HTML caricato da un utente non può eseguire script con l'origine dell'app.

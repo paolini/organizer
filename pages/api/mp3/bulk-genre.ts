@@ -3,6 +3,7 @@ import path from 'path';
 import nodeID3 from 'node-id3';
 import { getUserFromReq } from '../../../app/api/_lib/auth';
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { resolveInRoot } from '../../../app/api/_lib/paths';
 
 type BulkUpdateBody = {
   items: { path: string; type: string }[];
@@ -82,8 +83,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Resolve items to actual audio file paths
   const resolvedFiles: string[] = [];
   for (const item of items) {
-    const targetPath = path.resolve(rootDir, item.path);
-    if (!targetPath.startsWith(rootDir)) continue;
+    const targetPath = resolveInRoot(rootDir, item.path, false);
+    if (!targetPath) continue;
     if (item.type === 'directory') {
       try {
         const audioFiles = await collectAudioFiles(targetPath);
@@ -98,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const results = [];
   for (const targetFile of resolvedFiles) {
-    if (!targetFile.startsWith(rootDir)) {
+    if (!resolveInRoot(rootDir, path.relative(rootDir, targetFile), false)) {
       results.push({ file: path.relative(rootDir, targetFile), ok: false, error: 'Accesso non consentito' });
       continue;
     }

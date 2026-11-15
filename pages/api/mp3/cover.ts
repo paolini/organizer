@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { resolveInRoot } from '../../../app/api/_lib/paths';
 import formidable from 'formidable';
 import fs from 'fs/promises';
 import path from 'path';
@@ -40,8 +41,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     else relPath = String(fields.path || '');
     if (!relPath) return res.status(400).json({ error: 'Field "path" mancante' });
 
-    const targetFile = path.resolve(rootDir, relPath);
-    if (!targetFile.startsWith(rootDir)) return res.status(403).json({ error: 'Accesso non consentito' });
+    const targetFile = resolveInRoot(rootDir, relPath, false);
+    if (!targetFile) return res.status(403).json({ error: 'Accesso non consentito' });
 
     // files.image might be an array depending on formidable version / client
     const rawImg = files.image as any;

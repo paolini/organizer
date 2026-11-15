@@ -13,6 +13,8 @@ type Props = {
   /** Se presente, le cartelle accettano il drop di elementi */
   onDropItems?: (items: DragItem[], destDir: string) => void;
   rootLabel?: string;
+  /** false = nessuna cartella evidenziata (es. si sta guardando il cestino) */
+  rootActive?: boolean;
 };
 
 /** Albero delle sole cartelle. Lo stato (espanse, corrente) è gestito dal chiamante. */
@@ -25,7 +27,8 @@ export function FolderTree(props: Props) {
 }
 
 function FolderNode(props: Props & { path: string; name: string; depth: number }) {
-  const { fileTree, expanded, onToggle, current, onSelect, onDropItems, path, name, depth } = props;
+  const { fileTree, expanded, onToggle, onSelect, onDropItems, path, name, depth } = props;
+  const current = props.rootActive === false ? null : props.current;
   const [dropping, setDropping] = useState(false);
   const children = fileTree[path];
   const subdirs = children?.filter(c => c.type === "directory") ?? [];

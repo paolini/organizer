@@ -162,6 +162,12 @@ a { color: var(--accent); }
 .tree-row.drop-target { background: var(--drop); outline: 1px solid var(--success); }
 .tree-name { overflow: hidden; text-overflow: ellipsis; }
 .chevron { border: 0; background: none; color: var(--muted); width: 16px; padding: 0; cursor: pointer; font-size: 12px; }
+.trash-row { margin-top: 10px; border-top: 1px solid var(--border); border-radius: 0 0 4px 4px; padding-top: 8px; }
+.crumb-static { cursor: default; font-weight: 600; }
+.crumb-static:hover { background: none; }
+.col-wide { color: var(--muted); overflow-wrap: anywhere; }
+.col-date { width: 150px; white-space: nowrap; }
+.trash-props { margin: 16px 0 4px; font-size: 13px; }
 .tree-loading { color: var(--muted); font-size: 12px; padding: 2px 0; }
 
 /* ---------- Pannello centrale ---------- */
@@ -249,6 +255,8 @@ a { color: var(--accent); }
   border-left: 4px solid var(--accent); box-shadow: 0 4px 16px rgba(0,0,0,.15); white-space: pre-line;
 }
 .toast-success { border-left-color: var(--success); }
+.toast > span { flex: 1; }
+.toast-action { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; padding: 0 4px; white-space: nowrap; }
 .toast-error { border-left-color: var(--danger); }
 
 /* ---------- Pagine (utenti, account, accesso) ---------- */
@@ -303,7 +311,7 @@ a { color: var(--accent); }
 /* ---------- Schermi medi: dettagli più stretti ---------- */
 @media (max-width: 1100px) {
   .fb-root { grid-template-columns: 200px minmax(0, 1fr) 280px; }
-  .col-ext { display: none; }
+  .col-ext, .col-date { display: none; }
 }
 
 /* ---------- Mobile: un pannello alla volta, a schede ---------- */

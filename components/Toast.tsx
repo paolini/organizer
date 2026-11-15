@@ -2,8 +2,9 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 
 type Kind = "info" | "success" | "error";
-type Toast = { id: number; kind: Kind; text: string };
-type Notify = (kind: Kind, text: string) => void;
+export type ToastAction = { label: string; onClick: () => void };
+type Toast = { id: number; kind: Kind; text: string; action?: ToastAction };
+type Notify = (kind: Kind, text: string, action?: ToastAction) => void;
 
 const ToastContext = createContext<Notify>(() => {});
 
@@ -19,10 +20,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts(ts => ts.filter(t => t.id !== id));
   }, []);
 
-  const notify = useCallback<Notify>((kind, text) => {
+  const notify = useCallback<Notify>((kind, text, action) => {
     const id = nextId.current++;
-    setToasts(ts => [...ts, { id, kind, text }]);
-    setTimeout(() => dismiss(id), kind === "error" ? 10000 : 4000);
+    setToasts(ts => [...ts, { id, kind, text, action }]);
+    // con un'azione (es. Annulla) la notifica resta più a lungo
+    setTimeout(() => dismiss(id), kind === "error" ? 10000 : action ? 10000 : 4000);
   }, [dismiss]);
 
   return (
@@ -32,6 +34,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map(t => (
           <div key={t.id} className={`toast toast-${t.kind}`}>
             <span>{t.text}</span>
+            {t.action && (
+              <button className="toast-action" onClick={() => { dismiss(t.id); t.action!.onClick(); }}>
+                {t.action.label}
+              </button>
+            )}
             <button className="icon-btn" onClick={() => dismiss(t.id)} aria-label="Chiudi">×</button>
           </div>
         ))}

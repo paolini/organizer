@@ -1,6 +1,7 @@
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { getUserFromReq } from '../../_lib/auth';
+import { resolveInRoot } from '../../_lib/paths';
 import fs from 'fs/promises';
 
 export const runtime = 'nodejs'; // Forza Node.js runtime per supporto fs
@@ -19,8 +20,8 @@ export async function POST(req: Request) {
 
   const url = new URL(req.url);
   const relDir = url.searchParams.get('dir') || '';
-  const targetDir = path.resolve(rootDir, relDir);
-  if (!targetDir.startsWith(rootDir)) {
+  const targetDir = resolveInRoot(rootDir, relDir);
+  if (!targetDir) {
     return NextResponse.json({ error: 'Accesso non consentito' }, { status: 403 });
   }
 

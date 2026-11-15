@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { getUserFromReq } from '../../_lib/auth';
+import { resolveInRoot } from '../../_lib/paths';
 
 export async function POST(req: Request) {
   const user = await getUserFromReq(req);
@@ -33,8 +34,8 @@ export async function POST(req: Request) {
   }
 
   const parent = typeof parentDir === 'string' ? parentDir : '';
-  const targetPath = path.resolve(rootDir, parent, name);
-  if (!targetPath.startsWith(rootDir)) {
+  const targetPath = resolveInRoot(rootDir, path.join(parent, name), false);
+  if (!targetPath) {
     return NextResponse.json({ error: 'Accesso non consentito' }, { status: 403 });
   }
 

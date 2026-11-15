@@ -11,6 +11,7 @@ Web app to organize a music library on a server: browse folders, edit audio tags
 - **Player**: double-click a track to play it; the player keeps going while you browse and moves on to the next track of the folder.
 - **Previews**: images (with size and dimensions, and one click to use them as the album cover) and text files such as `.nfo`, `.cue`, `.m3u`, `.txt`.
 - **File operations**: upload, create folders, move, rename, delete, convert FLAC to MP3 (320 kbps, via ffmpeg).
+- **Trash**: deleted files go to a trash can (with an *Undo* button right after deleting) and can be restored to their original place; they are removed for good after 30 days, or earlier by an admin.
 - **Users and permissions**: read / write / admin roles, user management page, password change.
 
 Built with Next.js and React; tags are read with `music-metadata` and written with `node-id3`. No database: users live in a JSON file.
@@ -81,7 +82,12 @@ Users live in `data/users.json` (a JSON array; passwords are bcrypt hashes). Ses
 
 - `TARGET_DIR` — root folder of the music library. Example: `/home/you/mp3`.
 - `AUTH_SECRET` — secret used to sign session tokens. **Always set it in production.**
+- `TRASH_DAYS` — days after which items in the trash are deleted for good. Default `30`; `0` keeps them forever.
 - `ALLOW_SIGNUP` — set to `true` to let anyone register from `/signup`. New accounts get no permissions until an admin enables them. Default: registration closed (except for the very first user).
+
+### Trash
+
+Deleted items are moved to `.trash/` at the root of the library (on the same disk, so deleting is instant). The folder is hidden from the app and contains an empty `.ndignore` file so that [Navidrome](https://www.navidrome.org/) does not index it when it scans the same library. Users with `write` can delete and restore; only admins can delete permanently or empty the trash.
 
 ### Security notes
 

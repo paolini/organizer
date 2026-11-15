@@ -128,8 +128,34 @@ export async function renameItem(path: string, newName: string): Promise<string>
   return data.path ?? path;
 }
 
-/** Elimina definitivamente file e cartelle */
-export async function deleteItems(items: Item[]) {
-  const data = await postJson("/api/mp3/delete", { items });
+/** Sposta file e cartelle nel cestino; restituisce gli id per poterli ripristinare */
+export async function deleteItems(items: Item[]): Promise<string[]> {
+  const data = await postJson("/api/mp3/delete", { items }) as { results?: (ResultRow & { trashId?: string })[] };
+  const ids = (data.results ?? []).filter(r => r.ok && r.trashId).map(r => r.trashId!);
+  checkResults(data.results);
+  return ids;
+}
+
+export type TrashEntry = {
+  id: string;
+  name: string;
+  originalPath: string;
+  type: NodeType;
+  deletedAt: number;
+  deletedBy: string;
+  size: number;
+};
+
+export function listTrash() {
+  return request<{ entries: TrashEntry[]; retentionDays: number; canPurge: boolean }>("/api/trash");
+}
+
+export async function restoreTrash(ids: string[]) {
+  const data = await postJson("/api/trash/restore", { ids });
+  checkResults(data.results);
+}
+
+export async function purgeTrash(ids: string[] | "all") {
+  const data = await postJson("/api/trash/purge", ids === "all" ? { all: true } : { ids });
   checkResults(data.results);
 }

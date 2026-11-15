@@ -9,10 +9,10 @@ import { Toolbar } from "./Toolbar";
 import { DetailsPanel, type Run } from "./DetailsPanel";
 import { MoveDialog } from "./MoveDialog";
 import { Player } from "./Player";
+import { TrashView } from "./TrashView";
 import { kindOf } from "../../lib/fileTypes";
-import { ConfirmDialog } from "../ConfirmDialog";
 import { ToastProvider, useToast } from "../Toast";
-import { movableTo, type DragItem } from "./dnd";
+import { movableTo, DRAG_MIME, type DragItem } from "./dnd";
 
 type Tab = "tree" | "files" | "details";
 
@@ -38,7 +38,8 @@ function Browser() {
   const [moving, setMoving] = useState<DragItem[] | null>(null);
   const [tab, setTab] = useState<Tab>("files");
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<Entry[] | null>(null);
+  const [view, setView] = useState<"files" | "trash">("files");
+  const [trashDrop, setTrashDrop] = useState(false);
   const [player, setPlayer] = useState<{ queue: Entry[]; index: number } | null>(null);
   const fileTreeRef = useRef(fileTree);
   fileTreeRef.current = fileTree;
@@ -95,6 +96,7 @@ function Browser() {
   const selected = useMemo(() => (entries ?? []).filter(e => selection.has(e.path)), [entries, selection]);
 
   const navigate = useCallback((path: string) => {
+    setView("files");
     setCurrentDir(path);
     setSelection(new Set());
     setExpanded(prev => {
@@ -148,13 +150,31 @@ function Browser() {
     if (done) setSelection(new Set([newPath]));
   }
 
-  async function confirmDelete(items: Entry[]) {
-    setDeleting(null);
-    const done = await run(
-      () => api.deleteItems(items.map(e => ({ path: e.path, type: e.type }))),
-      `${items.length} ${items.length === 1 ? "elemento eliminato" : "elementi eliminati"}.`
-    );
-    if (done) setSelection(new Set());
+  /** Sposta nel cestino, senza conferma: la notifica offre "Annulla" */
+  async function trashItems(items: DragItem[]) {
+    if (items.length === 0) return;
+    setBusy(true);
+    try {
+      const ids = await api.deleteItems(items.map(e => ({ path: e.path, type: e.type })));
+      setSelection(new Set());
+      const what = items.length === 1 ? `“${items[0].path.split("/").pop()}”` : `${items.length} elementi`;
+      notify("success", `${what} nel cestino.`, {
+        label: "Annulla",
+        onClick: () => run(() => api.restoreTrash(ids), items.length === 1 ? `${what} ripristinato.` : `${what} ripristinati.`),
+      });
+    } catch (e) {
+      notify("error", (e as Error).message || String(e));
+    } finally {
+      setBusy(false);
+      await reloadAll();
+    }
+  }
+  const deleteSelected = () => trashItems(selected.map(e => ({ path: e.path, type: e.type })));
+
+  function openTrash() {
+    setView("trash");
+    setSelection(new Set());
+    setTab("files");
   }
 
   /** Avvia la riproduzione: la coda è l'elenco dei brani della cartella corrente */
@@ -212,9 +232,34 @@ function Browser() {
           current={currentDir}
           onSelect={navigate}
           onDropItems={moveItems}
+          rootActive={view === "files"}
         />
+        <div
+          className={`tree-row trash-row${view === "trash" ? " active" : ""}${trashDrop ? " drop-target" : ""}`}
+          onClick={openTrash}
+          onDragOver={e => {
+            if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
+            e.preventDefault();
+            setTrashDrop(true);
+          }}
+          onDragLeave={() => setTrashDrop(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setTrashDrop(false);
+            const raw = e.dataTransfer.getData(DRAG_MIME);
+            if (raw) trashItems(JSON.parse(raw));
+          }}
+          title="Cestino (trascina qui per eliminare)"
+        >
+          <span className="chevron" />
+          <span className="tree-icon">🗑</span>
+          <span className="tree-name">Cestino</span>
+        </div>
       </aside>
 
+      {view === "trash" ? (
+        <TrashView busy={busy} run={run} refreshKey={refreshKey} onOpenFolder={navigate} />
+      ) : (<>
       <section
         className={`pane pane-files${fileDragOver ? " os-drop" : ""}`}
         onDragOver={e => {
@@ -239,7 +284,7 @@ function Browser() {
           onMkdir={mkdir}
           onMove={() => setMoving(selected.map(e => ({ path: e.path, type: e.type })))}
           onRename={() => selected.length === 1 && setRenaming(selected[0].path)}
-          onDelete={() => selected.length > 0 && setDeleting(selected)}
+          onDelete={deleteSelected}
           onRefresh={reloadAll}
         />
         <FileTable
@@ -252,7 +297,7 @@ function Browser() {
           onRenameStart={setRenaming}
           onRenameSubmit={rename}
           onRenameCancel={() => setRenaming(null)}
-          onDelete={() => selected.length > 0 && setDeleting(selected)}
+          onDelete={deleteSelected}
           onPlay={play}
           playingPath={playingPath}
         />
@@ -276,29 +321,10 @@ function Browser() {
           playingPath={playingPath}
         />
       </aside>
+      </>)}
 
       {player && (
         <Player queue={player.queue} index={player.index} onIndexChange={setPlayerIndex} onClose={closePlayer} />
-      )}
-
-      {deleting && (
-        <ConfirmDialog
-          title={`Eliminare ${deleting.length === 1 ? `“${deleting[0].name}”` : `${deleting.length} elementi`}?`}
-          confirmLabel="Elimina"
-          danger
-          onConfirm={() => confirmDelete(deleting)}
-          onCancel={() => setDeleting(null)}
-        >
-          {deleting.length > 1 && (
-            <ul>
-              {deleting.map(e => <li key={e.path}>{e.type === "directory" ? "📁" : "🎵"} {e.name}</li>)}
-            </ul>
-          )}
-          {deleting.some(e => e.type === "directory") && (
-            <p>Le cartelle verranno eliminate con tutto il loro contenuto.</p>
-          )}
-          <p className="warn">L&apos;operazione è definitiva e non può essere annullata.</p>
-        </ConfirmDialog>
       )}
 
       {moving && (

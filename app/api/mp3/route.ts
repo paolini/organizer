@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { getUserFromReq } from '../_lib/auth';
+import { resolveInRoot, TRASH_NAME } from '../_lib/paths';
 
 // API: mostra la lista di file/cartelle di una directory (non ricorsivo)
 export async function GET(req: Request) {
@@ -23,14 +24,17 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const relPath = url.searchParams.get('path') || '';
   // Normalizza e previeni path traversal
-  const targetDir = path.resolve(rootDir, relPath);
-  if (!targetDir.startsWith(rootDir)) {
+  const targetDir = resolveInRoot(rootDir, relPath);
+  if (!targetDir) {
     return NextResponse.json({ error: 'Accesso non consentito' }, { status: 403 });
   }
 
   try {
     const entries = await fs.readdir(targetDir, { withFileTypes: true });
-    const children = entries.map((entry) => ({
+    const isRoot = targetDir === path.resolve(rootDir);
+    const children = entries
+      .filter(entry => !(isRoot && entry.name === TRASH_NAME))
+      .map((entry) => ({
       name: entry.name,
       type: entry.isDirectory() ? 'directory' : 'file',
     }));

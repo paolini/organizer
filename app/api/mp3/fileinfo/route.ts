@@ -3,6 +3,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { parseFile } from 'music-metadata';
 import { getUserFromReq } from '../../_lib/auth';
+import { resolveInRoot } from '../../_lib/paths';
 
 // API: restituisce info base e tag se mp3/flac
 export async function GET(req: Request) {
@@ -20,8 +21,8 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const relPath = url.searchParams.get('path') || '';
-  const targetFile = path.resolve(rootDir, relPath);
-  if (!targetFile.startsWith(rootDir)) {
+  const targetFile = resolveInRoot(rootDir, relPath);
+  if (!targetFile) {
     return NextResponse.json({ error: 'Accesso non consentito' }, { status: 403 });
   }
   try {
