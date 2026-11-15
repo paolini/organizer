@@ -52,8 +52,9 @@ export function downloadUrl(path: string) {
   return `/api/mp3/download?path=${encodeURIComponent(path)}`;
 }
 
-export function moveItems(items: Item[], destDir: string) {
-  return postJson("/api/mp3/move", { items, destDir });
+export async function moveItems(items: Item[], destDir: string) {
+  const data = await postJson("/api/mp3/move", { items, destDir });
+  checkResults(data.results);
 }
 
 export function makeDir(parentDir: string, name: string) {
@@ -96,4 +97,16 @@ export async function uploadCover(paths: string[], image: File) {
     }
   }));
   checkResults(results);
+}
+
+/** Rinomina un file o una cartella; restituisce il nuovo path relativo */
+export async function renameItem(path: string, newName: string): Promise<string> {
+  const data = await postJson("/api/mp3/rename", { path, newName }) as { path?: string };
+  return data.path ?? path;
+}
+
+/** Elimina definitivamente file e cartelle */
+export async function deleteItems(items: Item[]) {
+  const data = await postJson("/api/mp3/delete", { items });
+  checkResults(data.results);
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Entry } from "./types";
 import { DRAG_MIME, type DragItem } from "./dnd";
 
@@ -9,6 +9,12 @@ type Props = {
   onSelectionChange: (sel: Set<string>) => void;
   onOpenFolder: (path: string) => void;
   onDropItems: (items: DragItem[], destDir: string) => void;
+  /** Path dell'elemento in rinomina (input inline al posto del nome) */
+  renaming: string | null;
+  onRenameStart: (path: string) => void;
+  onRenameSubmit: (path: string, newName: string) => void;
+  onRenameCancel: () => void;
+  onDelete: () => void;
 };
 
 function extOf(name: string) {
@@ -16,7 +22,8 @@ function extOf(name: string) {
   return i > 0 ? name.slice(i + 1).toLowerCase() : "";
 }
 
-export function FileTable({ entries, selection, onSelectionChange, onOpenFolder, onDropItems }: Props) {
+export function FileTable(props: Props) {
+  const { entries, selection, onSelectionChange, onOpenFolder, onDropItems, renaming } = props;
   const anchor = useRef<number | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
@@ -50,6 +57,17 @@ export function FileTable({ entries, selection, onSelectionChange, onOpenFolder,
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
+    if (renaming) return; // i tasti vanno all'input di rinomina
+    if (e.key === "F2" && selection.size === 1) {
+      e.preventDefault();
+      props.onRenameStart([...selection][0]);
+      return;
+    }
+    if (e.key === "Delete" && selection.size > 0) {
+      e.preventDefault();
+      props.onDelete();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
       onSelectionChange(new Set(paths));
@@ -109,7 +127,7 @@ export function FileTable({ entries, selection, onSelectionChange, onOpenFolder,
                 className={`${selected ? "selected" : ""}${dropTarget === entry.path ? " drop-target" : ""}`}
                 onClick={e => clickRow(e, i)}
                 onDoubleClick={() => isDir && onOpenFolder(entry.path)}
-                draggable
+                draggable={renaming !== entry.path}
                 onDragStart={e => dragStart(e, entry)}
                 onDragOver={isDir ? e => {
                   if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
@@ -129,7 +147,14 @@ export function FileTable({ entries, selection, onSelectionChange, onOpenFolder,
                 </td>
                 <td className="col-name">
                   <span className="row-icon">{isDir ? "📁" : "🎵"}</span>
-                  {entry.name}
+                  {renaming === entry.path ? (
+                    <RenameInput
+                      name={entry.name}
+                      isDir={isDir}
+                      onSubmit={newName => props.onRenameSubmit(entry.path, newName)}
+                      onCancel={props.onRenameCancel}
+                    />
+                  ) : entry.name}
                 </td>
                 <td className="col-ext">{isDir ? "cartella" : extOf(entry.name)}</td>
               </tr>
@@ -143,4 +168,48 @@ export function FileTable({ entries, selection, onSelectionChange, onOpenFolder,
 
 function rowId(path: string) {
   return "row-" + encodeURIComponent(path);
+}
+
+function RenameInput({ name, isDir, onSubmit, onCancel }: {
+  name: string;
+  isDir: boolean;
+  onSubmit: (newName: string) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    // Per i file seleziona il nome senza estensione, come nei file manager
+    const dot = name.lastIndexOf(".");
+    el.setSelectionRange(0, !isDir && dot > 0 ? dot : name.length);
+  }, [name, isDir]);
+
+  function finish(commit: boolean) {
+    if (done.current) return;
+    done.current = true;
+    const v = ref.current?.value.trim() ?? "";
+    if (commit && v && v !== name) onSubmit(v);
+    else onCancel();
+  }
+
+  return (
+    <input
+      ref={ref}
+      className="rename-input"
+      defaultValue={name}
+      aria-label="Nuovo nome"
+      onClick={e => e.stopPropagation()}
+      onDoubleClick={e => e.stopPropagation()}
+      onKeyDown={e => {
+        e.stopPropagation();
+        if (e.key === "Enter") finish(true);
+        else if (e.key === "Escape") finish(false);
+      }}
+      onBlur={() => finish(true)}
+    />
+  );
 }

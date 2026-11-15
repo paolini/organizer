@@ -1,100 +1,106 @@
-import { NextRequest, NextResponse } from "next/server";
-import { join, dirname, relative, sep } from "path";
 import fs from "fs/promises";
-import { statSync, existsSync } from "fs";
-import { requireAuth } from "../../_lib/auth";
+import path from "path";
+import { NextResponse } from "next/server";
+import { getUserFromReq } from "../../_lib/auth";
+import { resolveInRoot } from "../../_lib/paths";
 
-// Directory root configurabile via env
-const ROOT = process.env.TARGET_DIR || "./data";
+type Item = { path: string; type: "file" | "directory" };
+type Result = { file: string; ok: boolean; error?: string };
 
-// Trova la cartella comune più profonda tra tutti i path
-function getCommonAncestor(paths: string[]): string {
-  if (paths.length === 0) return "";
-  const splitPaths = paths.map(p => p.split(sep));
-  let i = 0;
-  while (splitPaths.every(parts => parts[i] === splitPaths[0][i])) {
-    i++;
-    if (i >= splitPaths[0].length) break;
+async function exists(p: string) {
+  try {
+    await fs.lstat(p);
+    return true;
+  } catch {
+    return false;
   }
-  const ancestor = splitPaths[0].slice(0, i).join(sep);
-  console.log("[move] Common ancestor:", ancestor);
-  return ancestor;
 }
 
-
-// Sposta file e directory ricorsivamente
-async function moveSelectedItems(items: { path: string, type: "file" | "directory" }[], destDir: string) {
-  console.log("[move] items:", items);
-  console.log("[move] destDir:", destDir);
-  const moved: string[] = [];
-  const removedDirs: string[] = [];
-
-  async function moveFile(src: string, dest: string) {
-    const destFolder = dirname(dest);
-    if (!existsSync(destFolder)) await fs.mkdir(destFolder, { recursive: true });
-    await fs.rename(src, dest);
-    moved.push(dest);
-    console.log(`[move] Spostato file ${src} -> ${dest}`);
-  }
-
-  async function moveDir(srcDir: string, destDir: string) {
-    // Leggi tutto il contenuto
-    const entries = await fs.readdir(srcDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const srcPath = join(srcDir, entry.name);
-      const destPath = join(destDir, entry.name);
-      if (entry.isDirectory()) {
-        await moveDir(srcPath, destPath);
-      } else {
-        await moveFile(srcPath, destPath);
-      }
-    }
-    // Rimuovi la cartella sorgente se vuota
-    await fs.rmdir(srcDir);
-    removedDirs.push(srcDir);
-    console.log(`[move] Rimossa cartella vuota: ${srcDir}`);
-  }
-
-  for (const item of items) {
-    if (item.type === "file") {
-      const srcAbs = join(ROOT, item.path);
-      const destAbs = join(ROOT, destDir, item.path.split(sep).pop()!);
-      await moveFile(srcAbs, destAbs);
-    } else if (item.type === "directory") {
-      const srcAbs = join(ROOT, item.path);
-      const destAbs = join(ROOT, destDir, item.path.split(sep).pop()!);
-      if (!existsSync(destAbs)) await fs.mkdir(destAbs, { recursive: true });
-      await moveDir(srcAbs, destAbs);
+/** Unisce srcDir dentro destDir (che esiste già). I file con lo stesso nome
+ *  non vengono sovrascritti: restano nella sorgente e vengono segnalati. */
+async function mergeDir(srcDir: string, destDir: string, conflicts: string[]) {
+  for (const entry of await fs.readdir(srcDir, { withFileTypes: true })) {
+    const src = path.join(srcDir, entry.name);
+    const dest = path.join(destDir, entry.name);
+    if (!(await exists(dest))) {
+      await fs.rename(src, dest);
+    } else if (entry.isDirectory() && (await fs.lstat(dest)).isDirectory()) {
+      await mergeDir(src, dest, conflicts);
+    } else {
+      conflicts.push(dest);
     }
   }
-  return { moved, removedDirs };
+  // Rimuove la sorgente solo se è rimasta vuota
+  if ((await fs.readdir(srcDir)).length === 0) await fs.rmdir(srcDir);
 }
 
-export async function POST(req: NextRequest) {
-  const user = await requireAuth(req);
+// API: sposta file e cartelle in destDir. Body: { items: [{ path, type }], destDir }
+export async function POST(req: Request) {
+  const user = await getUserFromReq(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!Array.isArray(user.permissions) || !user.permissions.includes("write")) {
+    return NextResponse.json({ error: "Forbidden: missing write permission" }, { status: 403 });
+  }
+
+  const rootDir = process.env.TARGET_DIR || "";
+  if (!rootDir) return NextResponse.json({ error: "Variabile TARGET_DIR non impostata" }, { status: 500 });
+  const root = path.resolve(rootDir);
+
   let body;
   try {
     body = await req.json();
-  } catch (e) {
-    console.error("[move] Errore parsing JSON:", e);
+  } catch {
     return NextResponse.json({ error: "JSON non valido" }, { status: 400 });
   }
-  const { items, destDir } = body;
-  console.log("[move] BODY ricevuto:", body);
+  const { items, destDir } = body ?? {};
   if (!Array.isArray(items) || typeof destDir !== "string") {
-    console.error("[move] Parametri non validi:", { items, destDir });
     return NextResponse.json({ error: "Parametri non validi" }, { status: 400 });
   }
-  items.forEach((item, i) => {
-    console.log(`[move] item[${i}]:`, item, "typeof:", typeof item, "keys:", Object.keys(item));
-  });
+
+  const destAbs = resolveInRoot(rootDir, destDir);
+  if (!destAbs) return NextResponse.json({ error: "Destinazione non consentita" }, { status: 403 });
   try {
-    const result = await moveSelectedItems(items, destDir);
-    console.log("[move] Risultato:", result);
-    return NextResponse.json({ ok: true, ...result });
-  } catch (e: any) {
-    console.error("[move] Errore:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    if (!(await fs.stat(destAbs)).isDirectory()) throw new Error();
+  } catch {
+    return NextResponse.json({ error: "La destinazione non è una cartella esistente" }, { status: 400 });
   }
+
+  const results: Result[] = [];
+  for (const item of items as Item[]) {
+    const rel = typeof item?.path === "string" ? item.path : "";
+    const src = resolveInRoot(rootDir, rel, false);
+    if (!src) {
+      results.push({ file: rel, ok: false, error: "Accesso non consentito" });
+      continue;
+    }
+    const dest = path.join(destAbs, path.basename(src));
+    try {
+      const st = await fs.lstat(src);
+      if (dest === src) {
+        results.push({ file: rel, ok: true }); // già lì
+        continue;
+      }
+      if (st.isDirectory() && (destAbs === src || destAbs.startsWith(src + path.sep))) {
+        results.push({ file: rel, ok: false, error: "Impossibile spostare una cartella dentro sé stessa" });
+        continue;
+      }
+      if (!(await exists(dest))) {
+        await fs.rename(src, dest);
+        results.push({ file: rel, ok: true });
+      } else if (st.isDirectory() && (await fs.lstat(dest)).isDirectory()) {
+        const conflicts: string[] = [];
+        await mergeDir(src, dest, conflicts);
+        results.push(conflicts.length
+          ? { file: rel, ok: false, error: `cartelle unite, ma ${conflicts.length} file già esistenti non sono stati sovrascritti: ${conflicts.map(c => path.relative(root, c)).join(", ")}` }
+          : { file: rel, ok: true });
+      } else {
+        results.push({ file: rel, ok: false, error: "Esiste già un elemento con lo stesso nome nella destinazione" });
+      }
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      results.push({ file: rel, ok: false, error: code === "ENOENT" ? "Non trovato" : String(err) });
+    }
+  }
+  console.log(`[move] ${user.username} -> /${destDir}:`, results.map(r => `${r.ok ? "OK" : "ERR"} ${r.file}`).join(", "));
+  return NextResponse.json({ results });
 }

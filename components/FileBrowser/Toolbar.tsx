@@ -10,6 +10,8 @@ type Props = {
   onUpload: (files: FileList) => void;
   onMkdir: () => void;
   onMove: () => void;
+  onRename: () => void;
+  onDelete: () => void;
   onConvert: () => void;
   onRefresh: () => void;
 };
@@ -48,6 +50,12 @@ export function Toolbar(p: Props) {
         </button>
         <button className="btn" onClick={p.onMove} disabled={p.busy || p.selectedCount === 0} title="Sposta i selezionati in un'altra cartella (o trascinali sull'albero)">
           ➜ Sposta in…
+        </button>
+        <button className="btn" onClick={p.onRename} disabled={p.busy || p.selectedCount !== 1} title="Rinomina (F2)">
+          ✎ Rinomina
+        </button>
+        <button className="btn btn-danger-outline" onClick={p.onDelete} disabled={p.busy || p.selectedCount === 0} title="Elimina (Canc)">
+          🗑 Elimina
         </button>
         {p.flacCount > 0 && (
           <button className="btn" onClick={p.onConvert} disabled={p.busy}>

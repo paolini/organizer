@@ -1,13 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Entry, FileTree } from "./types";
-import { ancestorsOf, joinPath } from "./types";
+import { ancestorsOf, joinPath, parentOf } from "./types";
 import * as api from "./api";
 import { FolderTree } from "./FolderTree";
 import { FileTable } from "./FileTable";
 import { Toolbar } from "./Toolbar";
 import { DetailsPanel, type Run } from "./DetailsPanel";
 import { MoveDialog } from "./MoveDialog";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ToastProvider, useToast } from "./Toast";
 import { movableTo, type DragItem } from "./dnd";
 
@@ -34,8 +35,12 @@ function Browser() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [moving, setMoving] = useState<DragItem[] | null>(null);
   const [tab, setTab] = useState<Tab>("files");
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Entry[] | null>(null);
   const fileTreeRef = useRef(fileTree);
   fileTreeRef.current = fileTree;
+  const currentDirRef = useRef(currentDir);
+  currentDirRef.current = currentDir;
 
   const loadDir = useCallback(async (path: string) => {
     try {
@@ -50,10 +55,26 @@ function Browser() {
     }
   }, [notify]);
 
-  /** Ricarica tutte le cartelle già caricate e forza il refresh del pannello dettagli */
+  /** Ricarica tutte le cartelle già caricate e forza il refresh del pannello dettagli.
+   *  Le cartelle che non esistono più (rinominate, spostate, eliminate) vengono
+   *  tolte dalla cache senza segnalare errori. */
   const reloadAll = useCallback(async () => {
-    const loaded = Object.keys(fileTreeRef.current).filter(k => fileTreeRef.current[k] != null);
-    await Promise.all((loaded.length ? loaded : [""]).map(loadDir));
+    const loaded = Object.keys(fileTreeRef.current).filter(k => k !== "" && fileTreeRef.current[k] != null);
+    await Promise.all([
+      loadDir(""),
+      ...loaded.map(p => api.listDir(p)
+        .then(children => setFileTree(prev => ({ ...prev, [p]: children })))
+        .catch(() => {
+          setFileTree(prev => {
+            const next = { ...prev };
+            delete next[p];
+            return next;
+          });
+          // Se è sparita la cartella che stiamo guardando, risali al primo antenato esistente
+          const cur = currentDirRef.current;
+          if (cur === p || cur.startsWith(p + "/")) setCurrentDir(parentOf(p));
+        })),
+    ]);
     setRefreshKey(k => k + 1);
   }, [loadDir]);
 
@@ -114,6 +135,22 @@ function Browser() {
     const ok = movableTo(items, destDir);
     if (ok.length === 0) return;
     const done = await run(() => api.moveItems(ok, destDir), `${ok.length} ${ok.length === 1 ? "elemento spostato" : "elementi spostati"} in /${destDir}`);
+    if (done) setSelection(new Set());
+  }
+
+  async function rename(path: string, newName: string) {
+    setRenaming(null);
+    let newPath = path;
+    const done = await run(async () => { newPath = await api.renameItem(path, newName); }, `Rinominato in “${newName}”.`);
+    if (done) setSelection(new Set([newPath]));
+  }
+
+  async function confirmDelete(items: Entry[]) {
+    setDeleting(null);
+    const done = await run(
+      () => api.deleteItems(items.map(e => ({ path: e.path, type: e.type }))),
+      `${items.length} ${items.length === 1 ? "elemento eliminato" : "elementi eliminati"}.`
+    );
     if (done) setSelection(new Set());
   }
 
@@ -190,6 +227,8 @@ function Browser() {
           onUpload={upload}
           onMkdir={mkdir}
           onMove={() => setMoving(selected.map(e => ({ path: e.path, type: e.type })))}
+          onRename={() => selected.length === 1 && setRenaming(selected[0].path)}
+          onDelete={() => selected.length > 0 && setDeleting(selected)}
           onConvert={() => run(() => api.convertToMp3(flacPaths), `${flacPaths.length} file convertiti in MP3.`)}
           onRefresh={reloadAll}
         />
@@ -199,6 +238,11 @@ function Browser() {
           onSelectionChange={setSelection}
           onOpenFolder={navigate}
           onDropItems={moveItems}
+          renaming={renaming}
+          onRenameStart={setRenaming}
+          onRenameSubmit={rename}
+          onRenameCancel={() => setRenaming(null)}
+          onDelete={() => selected.length > 0 && setDeleting(selected)}
         />
         <div className="statusbar">
           {entries ? `${entries.length} elementi` : ""}
@@ -218,6 +262,26 @@ function Browser() {
           onOpenFolder={navigate}
         />
       </aside>
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Eliminare ${deleting.length === 1 ? `“${deleting[0].name}”` : `${deleting.length} elementi`}?`}
+          confirmLabel="Elimina"
+          danger
+          onConfirm={() => confirmDelete(deleting)}
+          onCancel={() => setDeleting(null)}
+        >
+          {deleting.length > 1 && (
+            <ul>
+              {deleting.map(e => <li key={e.path}>{e.type === "directory" ? "📁" : "🎵"} {e.name}</li>)}
+            </ul>
+          )}
+          {deleting.some(e => e.type === "directory") && (
+            <p>Le cartelle verranno eliminate con tutto il loro contenuto.</p>
+          )}
+          <p className="warn">L&apos;operazione è definitiva e non può essere annullata.</p>
+        </ConfirmDialog>
+      )}
 
       {moving && (
         <MoveDialog
