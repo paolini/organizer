@@ -1,17 +1,18 @@
+# Esempio di deploy. Metti AUTH_SECRET=<stringa lunga e casuale> in un file .env accanto a questo.
 services:
   organizer:
-    image: paolini/organizer:0.1.0
+    image: paolini/organizer:1.0.0
     container_name: organizer
     restart: unless-stopped
     environment:
       - PORT=3000
       - TARGET_DIR=/target
-      - AUTH_SECRET=${AUTH_SECRET:-replace_with_strong_secret}
-      - DATA_DIR=${DATA_DIR:-./data}
+      - AUTH_SECRET=${AUTH_SECRET:?imposta AUTH_SECRET nel file .env}
+      # - ALLOW_SIGNUP=true   # registrazione libera (gli account nuovi non hanno permessi)
     ports:
       - "3000:3000"
     volumes:
-      # Host folder for ORGANIZER files. Set TARGET_DIR in .env.prod or default to ./mp3
-      - /path/to/organizer/files:/target:rw
-      # Host folder for persistent app data (users.json, etc.). Set DATA_DIR in .env.prod or default to ./data
-      - ${DATA_DIR:-./data}:/app/data:rw
+      # La libreria musicale
+      - /path/to/your/music:/target:rw
+      # Dati dell'app (users.json)
+      - ./data:/app/data:rw

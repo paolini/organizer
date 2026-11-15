@@ -1,39 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Organizer
 
-## Getting Started
+Web app to organize a music library on a server: browse folders, edit audio tags and covers, listen to tracks, preview images and text files, and move, rename, upload or delete files. It also manages users and their permissions.
 
-First, run the development server:
+![Organizer: folder tree, file list and tag editor](docs/screenshot.png)
+
+## Features
+
+- **Three-pane file browser**: folder tree, file list, details panel. Multi-select with Ctrl/Shift-click, keyboard navigation, drag & drop to move files, drag files from your computer to upload.
+- **Audio tags**: edit title, artist, album artist, album, year, track and genre for one file or many at once (including whole folders); embed cover images in MP3s.
+- **Player**: double-click a track to play it; the player keeps going while you browse and moves on to the next track of the folder.
+- **Previews**: images (with size and dimensions, and one click to use them as the album cover) and text files such as `.nfo`, `.cue`, `.m3u`, `.txt`.
+- **File operations**: upload, create folders, move, rename, delete, convert FLAC to MP3 (320 kbps, via ffmpeg).
+- **Users and permissions**: read / write / admin roles, user management page, password change.
+
+Built with Next.js and React; tags are read with `music-metadata` and written with `node-id3`. No database: users live in a JSON file.
+
+## Running locally
+
+Requirements: Node.js 24, and `ffmpeg` on the `PATH` if you want FLAC → MP3 conversion.
 
 ```bash
+npm install
+cat > .env.local <<'ENV'
+TARGET_DIR=/path/to/your/music
+AUTH_SECRET=any-long-random-string
+ENV
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>. On the first run there are no users: go to `/signup` and create the first account, which becomes an administrator.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running with Docker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Every push to `main` builds and publishes the image `paolini/organizer`, tagged with the version in `package.json` and with `latest`. The image includes ffmpeg.
 
-## Learn More
+A minimal `docker-compose.yml` (also in this repository):
 
-To learn more about Next.js, take a look at the following resources:
+```yaml
+services:
+  organizer:
+    image: paolini/organizer:1.0.0
+    restart: unless-stopped
+    environment:
+      - TARGET_DIR=/target
+      - AUTH_SECRET=${AUTH_SECRET}
+    ports:
+      - "3000:3000"
+    volumes:
+      - /path/to/your/music:/target:rw   # the music library
+      - ./data:/app/data:rw              # users.json lives here
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Put `AUTH_SECRET=<a long random string>` in a `.env` file next to the compose file, then `docker compose up -d`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+To upgrade, change the image tag and run `docker compose pull && docker compose up -d`. The users in `./data` are kept.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app speaks plain HTTP: in production put it behind a reverse proxy that terminates HTTPS (for example Traefik or Caddy) and sets `X-Forwarded-For`.
 
 ## Authentication and users
 
@@ -75,11 +97,3 @@ node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 10))" 'new-pa
 ```
 
 Changes to the file take effect immediately, without restarting.
-
-## Local development
-
-```bash
-export TARGET_DIR=/path/to/your/mp3s
-export AUTH_SECRET='replace_with_secure_secret'
-npm run dev
-```
